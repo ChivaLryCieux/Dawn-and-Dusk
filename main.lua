@@ -15,6 +15,8 @@ local sensorTargets = {
 
 local sensorSeed = 37.219
 local paused = false
+local flowTarget = false
+local flowAmount = 0
 local elapsed = 0
 local tower = {}
 
@@ -28,6 +30,11 @@ end
 
 local function normalizeSensor(value, minValue, maxValue)
   return clamp((value - minValue) / (maxValue - minValue), 0, 1)
+end
+
+local function smoothstep(x)
+  local t = clamp(x, 0, 1)
+  return t * t * (3 - 2 * t)
 end
 
 local function isoProject(x, y, z, cubeW, cubeH)
@@ -137,6 +144,15 @@ local function updateSensors(dt)
   sensors.sound = lerp(sensors.sound, sensorTargets.sound, response * 0.45)
 end
 
+local function updateFlow(dt)
+  local target = flowTarget and 1 or 0
+  local speed = flowTarget and 0.55 or 0.75
+  flowAmount = lerp(flowAmount, target, 1 - math.exp(-speed * dt * 5))
+  if math.abs(flowAmount - target) < 0.001 then
+    flowAmount = target
+  end
+end
+
 local function drawCube(cx, cy, size, lift, palette, brightness, alpha, accent)
   local hw = size * 0.5
   local hh = size * 0.27
@@ -159,12 +175,16 @@ local function drawCube(cx, cy, size, lift, palette, brightness, alpha, accent)
 end
 
 local function drawFunctionalRing(cx, cy, baseSize, ring, temperature, humidity, sound, front)
-  local phase = ring.phase + elapsed * (ring.speed + sound * ring.soundSpeed)
+  local flowBoost = flowAmount * 1.75
+  local phase = ring.phase + elapsed * (ring.speed + flowBoost + sound * ring.soundSpeed)
   local radius = baseSize * (ring.radius + humidity * ring.humidityScale + temperature * ring.temperatureScale)
   local rx = radius
   local ry = radius * ring.flatness
   local y = cy + radius * ring.drop
   local alpha = front and ring.frontAlpha or ring.backAlpha
+  if flowAmount > 0.01 then
+    alpha = alpha * 1.18
+  end
   local start = front and 0 or math.pi
   local stop = front and math.pi or TAU
   local baseColor = ring.baseColor
@@ -260,14 +280,44 @@ local function drawTower(w, h)
 
   drawFunctionalRings(originX, originY, baseSize, temperature, humidity, sound, false)
 
+  local drawList = {}
+
   for _, cube in ipairs(tower) do
+    local delay = love.math.noise(cube.seed, cube.z * 0.17) * 0.42
+    local pull = smoothstep((flowAmount - delay) / 0.58)
+    local orbit = elapsed * (0.75 + sound * 1.35) + cube.seed * 0.021 + cube.z * 0.16
+    local radius = 5.8 + (cube.z % 9) * 0.42 + love.math.noise(cube.seed, 4.1) * 3.8
+    local ringBias = math.sin(cube.z * 0.31 + cube.seed) * 0.9
+    local targetX = math.cos(orbit) * radius
+    local targetY = math.sin(orbit) * radius + ringBias
+    local targetZ = cube.z + math.sin(orbit * 1.4 + cube.seed) * 1.1
+    local x, y = cube.x, cube.y
+    local z = lerp(cube.z, targetZ, pull)
+    x = lerp(cube.x, targetX, pull)
+    y = lerp(cube.y, targetY, pull)
+    drawList[#drawList + 1] = {
+      cube = cube,
+      x = x,
+      y = y,
+      z = z
+    }
+  end
+
+  table.sort(drawList, function(a, b)
+    local ka = a.cube.kind == "core" and 0.18 or 0
+    local kb = b.cube.kind == "core" and 0.18 or 0
+    return a.x + a.y + a.z * 0.08 + ka < b.x + b.y + b.z * 0.08 + kb
+  end)
+
+  for _, item in ipairs(drawList) do
+    local cube = item.cube
     local noise = love.math.noise(cube.seed, elapsed * 0.8)
     local tremor = (noise - 0.5) * sound * baseSize * 0.08
     local grow = temperature * 0.08 + pulse * sound * 0.05
-    local px, py = isoProject(cube.x, cube.y, cube.z * (1 + grow * 0.035), cubeW, cubeH)
+    local px, py = isoProject(item.x, item.y, item.z * (1 + grow * 0.035), cubeW, cubeH)
     local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
     local flow = math.sin(elapsed * 0.7 + cube.z * 0.37 + cube.x * 0.21) * 0.5 + 0.5
-    local brightness = kindBoost * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * 0.025)
+    local brightness = kindBoost * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * (0.025 + flowAmount * 0.02))
     local alpha = 0.82 + humidity * 0.08
     local accent
 
@@ -292,6 +342,7 @@ end
 function love.update(dt)
   dt = math.min(dt, 1 / 30)
   elapsed = elapsed + dt
+  updateFlow(dt)
   updateSensors(dt)
 end
 
@@ -312,4 +363,8 @@ function love.keypressed(key)
   elseif key == "f" then
     love.window.setFullscreen(not love.window.getFullscreen(), "desktop")
   end
+end
+
+function love.mousepressed()
+  flowTarget = not flowTarget
 end
