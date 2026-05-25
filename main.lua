@@ -83,28 +83,29 @@ local function buildTower()
   local centerY = -2
   local boxW = 4
   local boxD = 4
-  local high = 7
-  local low = 5
-  local mid = 6
+  local roomH = 6
+  local highOffset = 2
+  local lowOffset = 0
+  local midOffset = 1
   local gap = 3
   local bottomZ = 0
-  local middleZ = bottomZ + high + gap
-  local upperZ = middleZ + high + gap
+  local middleZ = bottomZ + roomH + highOffset + gap
+  local upperZ = middleZ + roomH + highOffset + gap
 
   addBlock(-1, -1, 0, 2, 2, upperZ + 9, "core")
   addBlock(0, -1, 5, 1, 2, upperZ + 4, "core")
 
-  addBlock(cornerAX, cornerAY, bottomZ, boxW, boxD, high, "base")
-  addBlock(cornerBX, cornerBY, bottomZ, boxW, boxD, low, "base")
-  addBlock(cornerCX, cornerCY, bottomZ, boxW, boxD, mid, "base")
+  addBlock(cornerAX, cornerAY, bottomZ + lowOffset, boxW, boxD, roomH, "base")
+  addBlock(cornerBX, cornerBY, bottomZ + midOffset, boxW, boxD, roomH, "base")
+  addBlock(cornerCX, cornerCY, bottomZ + highOffset, boxW, boxD, roomH, "base")
 
-  addBlock(cornerAX, cornerAY, middleZ, boxW, boxD, high, "cantilever")
-  addBlock(cornerBX, cornerBY, middleZ, boxW, boxD, low, "shaft")
-  addBlock(cornerCX, cornerCY, middleZ, boxW, boxD, mid, "cantilever")
+  addBlock(cornerAX, cornerAY, middleZ + lowOffset, boxW, boxD, roomH, "cantilever")
+  addBlock(cornerBX, cornerBY, middleZ + midOffset, boxW, boxD, roomH, "shaft")
+  addBlock(cornerCX, cornerCY, middleZ + highOffset, boxW, boxD, roomH, "cantilever")
 
-  addBlock(centerX, centerY, upperZ, boxW, boxD, low, "crown")
-  addBlock(-1, -1, upperZ + low, 2, 2, 7, "spire")
-  addBlock(-1, -1, upperZ + low + 7, 2, 2, 1, "cap")
+  addBlock(centerX, centerY, upperZ, boxW, boxD, roomH, "crown")
+  addBlock(-1, -1, upperZ + roomH, 2, 2, 7, "spire")
+  addBlock(-1, -1, upperZ + roomH + 7, 2, 2, 1, "cap")
 
   table.sort(tower, function(a, b)
     local ka = a.kind == "core" and 0.18 or 0
@@ -188,7 +189,7 @@ local function drawTower(w, h)
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
   local originX = w * 0.5
-  local originY = h * 0.71
+  local originY = h * 0.83
   local temperature = sensors.temperature
   local humidity = sensors.humidity
   local sound = sensors.sound
