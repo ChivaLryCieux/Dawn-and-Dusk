@@ -158,30 +158,87 @@ local function drawCube(cx, cy, size, lift, palette, brightness, alpha, accent)
 
 end
 
-local function drawFunctionalRing(cx, cy, radius, humidity, sound, phase, front)
+local function drawFunctionalRing(cx, cy, baseSize, ring, temperature, humidity, sound, front)
+  local phase = ring.phase + elapsed * (ring.speed + sound * ring.soundSpeed)
+  local radius = baseSize * (ring.radius + humidity * ring.humidityScale + temperature * ring.temperatureScale)
   local rx = radius
-  local ry = radius * 0.23
-  local y = cy + radius * 0.08
-  local alpha = front and 0.5 or 0.22
+  local ry = radius * ring.flatness
+  local y = cy + radius * ring.drop
+  local alpha = front and ring.frontAlpha or ring.backAlpha
+  local start = front and 0 or math.pi
+  local stop = front and math.pi or TAU
+  local baseColor = ring.baseColor
+  local accent = ring.accentColor
 
-  lg.setLineWidth(2)
-  lg.setColor(0.68, 0.7, 0.7, alpha * 0.38)
-  lineArc(cx, y, rx * 1.08, ry * 1.08, front and 0 or math.pi, front and math.pi or TAU, 80)
+  lg.setLineWidth(ring.ghostWidth)
+  lg.setColor(0.74, 0.77, 0.78, alpha * ring.ghostAlpha)
+  lineArc(cx, y, rx * ring.ghostScale, ry * ring.ghostScale, start, stop, 96)
 
-  lg.setLineWidth(4 + sound * 3)
-  lg.setColor(0.02, 0.035, 0.04, alpha * (0.42 + sound * 0.32))
-  lineArc(cx, y, rx, ry, phase + 0.15, phase + 0.92, 24)
-  lineArc(cx, y, rx, ry, phase + 2.7, phase + 3.34, 20)
+  lg.setLineWidth(ring.width + sound * ring.soundWidth)
+  lg.setColor(baseColor[1], baseColor[2], baseColor[3], alpha * baseColor[4])
+  lineArc(cx, y, rx, ry, phase + ring.arcA[1], phase + ring.arcA[2], ring.segments)
 
-  lg.setLineWidth(3)
-  lg.setColor(0.0, 0.72, 0.78, alpha * (0.55 + humidity * 0.28))
-  lineArc(cx, y, rx * 1.2, ry * 1.2, phase + 3.55, phase + 4.4, 24)
+  lg.setLineWidth(math.max(1, ring.width * 0.72))
+  lg.setColor(accent[1], accent[2], accent[3], alpha * accent[4])
+  lineArc(cx, y, rx * ring.accentScale, ry * ring.accentScale, phase + ring.arcB[1], phase + ring.arcB[2], ring.segments)
 
-  lg.setLineWidth(3)
-  lg.setColor(0.92, 0.08, 0.18, alpha * 0.82)
-  lineArc(cx, y, rx * 1.28, ry * 1.28, phase + 5.1, phase + 5.72, 20)
+  if ring.arcC then
+    lg.setLineWidth(math.max(1, ring.width * 0.5))
+    lg.setColor(ring.thirdColor[1], ring.thirdColor[2], ring.thirdColor[3], alpha * ring.thirdColor[4])
+    lineArc(cx, y, rx * ring.thirdScale, ry * ring.thirdScale, phase + ring.arcC[1], phase + ring.arcC[2], ring.segments)
+  end
 
   lg.setLineWidth(1)
+end
+
+local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity, sound, front)
+  local rings = {
+    {
+      z = 4.2, radius = 8.0, width = 4.8, ghostWidth = 1.8, soundWidth = 1.8,
+      flatness = 0.24, drop = 0.08, speed = 0.28, soundSpeed = 0.35,
+      phase = 0.1, humidityScale = 0.7, temperatureScale = 0.1,
+      frontAlpha = 0.42, backAlpha = 0.16, ghostAlpha = 0.42, ghostScale = 1.08,
+      baseColor = {0.08, 0.095, 0.1, 0.62}, accentColor = {0.0, 0.72, 0.78, 0.78},
+      accentScale = 1.17, arcA = {0.2, 0.95}, arcB = {3.58, 4.4}, segments = 26
+    },
+    {
+      z = 8.2, radius = 5.8, width = 2.2, ghostWidth = 1.2, soundWidth = 0.8,
+      flatness = 0.21, drop = 0.06, speed = -0.16, soundSpeed = 0.12,
+      phase = 1.4, humidityScale = 0.25, temperatureScale = 0.2,
+      frontAlpha = 0.3, backAlpha = 0.12, ghostAlpha = 0.32, ghostScale = 1.02,
+      baseColor = {0.82, 0.84, 0.84, 0.44}, accentColor = {0.92, 0.08, 0.18, 0.7},
+      accentScale = 1.08, arcA = {2.72, 3.48}, arcB = {5.0, 5.62}, segments = 24
+    },
+    {
+      z = 12.3, radius = 9.2, width = 5.4, ghostWidth = 1.6, soundWidth = 2.4,
+      flatness = 0.25, drop = 0.085, speed = 0.44, soundSpeed = 0.55,
+      phase = 2.2, humidityScale = 0.8, temperatureScale = 0.05,
+      frontAlpha = 0.38, backAlpha = 0.14, ghostAlpha = 0.3, ghostScale = 1.12,
+      baseColor = {0.05, 0.06, 0.065, 0.58}, accentColor = {0.0, 0.72, 0.78, 0.82},
+      accentScale = 1.23, arcA = {0.1, 0.72}, arcB = {3.35, 4.28}, segments = 24,
+      arcC = {5.05, 5.52}, thirdColor = {0.92, 0.08, 0.18, 0.72}, thirdScale = 1.32
+    },
+    {
+      z = 17.0, radius = 6.9, width = 3.0, ghostWidth = 1.3, soundWidth = 1.1,
+      flatness = 0.22, drop = 0.07, speed = -0.32, soundSpeed = 0.25,
+      phase = 0.8, humidityScale = 0.2, temperatureScale = 0.65,
+      frontAlpha = 0.34, backAlpha = 0.13, ghostAlpha = 0.36, ghostScale = 1.14,
+      baseColor = {0.92, 0.08, 0.18, 0.62}, accentColor = {0.08, 0.095, 0.1, 0.68},
+      accentScale = 0.98, arcA = {5.05, 5.75}, arcB = {2.6, 3.28}, segments = 22
+    },
+    {
+      z = 24.0, radius = 4.6, width = 2.0, ghostWidth = 1.0, soundWidth = 0.6,
+      flatness = 0.2, drop = 0.055, speed = 0.12, soundSpeed = 0.15,
+      phase = 3.1, humidityScale = 0.18, temperatureScale = 0.32,
+      frontAlpha = 0.28, backAlpha = 0.1, ghostAlpha = 0.34, ghostScale = 1.18,
+      baseColor = {0.0, 0.72, 0.78, 0.54}, accentColor = {0.86, 0.88, 0.88, 0.42},
+      accentScale = 0.92, arcA = {3.78, 4.56}, arcB = {0.18, 0.82}, segments = 20
+    }
+  }
+
+  for _, ring in ipairs(rings) do
+    drawFunctionalRing(cx, originY - baseSize * ring.z, baseSize, ring, temperature, humidity, sound, front)
+  end
 end
 
 local function drawTower(w, h)
@@ -201,8 +258,7 @@ local function drawTower(w, h)
     top = {0.96, 0.97 + humidity * 0.02, 0.97 + humidity * 0.02, 1}
   }
 
-  drawFunctionalRing(originX, originY - baseSize * 5.1, baseSize * (4.6 + humidity * 1.2), humidity, sound, elapsed * (0.22 + sound * 0.55), false)
-  drawFunctionalRing(originX, originY - baseSize * 10.4, baseSize * (3.2 + temperature * 0.9), humidity, sound, -elapsed * (0.16 + sound * 0.38), false)
+  drawFunctionalRings(originX, originY, baseSize, temperature, humidity, sound, false)
 
   for _, cube in ipairs(tower) do
     local noise = love.math.noise(cube.seed, elapsed * 0.8)
@@ -224,8 +280,7 @@ local function drawTower(w, h)
     drawCube(originX + px + tremor, originY + py - tremor * 0.4, baseSize * (0.98 + grow * 0.04), temperature * 0.06, palette, brightness, alpha, accent)
   end
 
-  drawFunctionalRing(originX, originY - baseSize * 5.1, baseSize * (4.6 + humidity * 1.2), humidity, sound, elapsed * (0.22 + sound * 0.55), true)
-  drawFunctionalRing(originX, originY - baseSize * 10.4, baseSize * (3.2 + temperature * 0.9), humidity, sound, -elapsed * (0.16 + sound * 0.38), true)
+  drawFunctionalRings(originX, originY, baseSize, temperature, humidity, sound, true)
 end
 
 function love.load()
