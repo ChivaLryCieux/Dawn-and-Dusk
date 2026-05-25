@@ -19,6 +19,13 @@ local flowTarget = false
 local flowAmount = 0
 local elapsed = 0
 local tower = {}
+local drawList = {}
+local paletteScratch = {
+  dark = {0, 0, 0, 1},
+  mid = {0, 0, 0, 1},
+  top = {0, 0, 0, 1},
+  brightness = 1
+}
 
 local function clamp(value, low, high)
   return math.max(low, math.min(high, value))
@@ -45,16 +52,11 @@ local function shadeColor(color, factor, alpha)
   return color[1] * factor, color[2] * factor, color[3] * factor, alpha or color[4] or 1
 end
 
-local function mixColor(a, b, t)
-  return {
-    lerp(a[1], b[1], t),
-    lerp(a[2], b[2], t),
-    lerp(a[3], b[3], t),
-    lerp(a[4] or 1, b[4] or 1, t)
-  }
+local function mixComponents(ar, ag, ab, aa, br, bg, bb, ba, t)
+  return lerp(ar, br, t), lerp(ag, bg, t), lerp(ab, bb, t), lerp(aa, ba, t)
 end
 
-local function getColorCyclePalette(z, seed)
+local function getColorCyclePalette(z, seed, out)
   local segmentDuration = 10
   local cycle = (elapsed % (segmentDuration * 4)) / segmentDuration
   local segment = math.floor(cycle)
@@ -62,36 +64,26 @@ local function getColorCyclePalette(z, seed)
   local wave = math.sin(elapsed * 0.55 + z * 0.42 + seed * 0.013) * 0.5 + 0.5
   local vertical = math.sin(elapsed * 0.28 - z * 0.18) * 0.5 + 0.5
 
-  local black = {0.015, 0.018, 0.02, 0.94}
-  local redYellowBlue = mixColor(
-    mixColor({0.82, 0.05, 0.08, 0.92}, {1.0, 0.76, 0.08, 0.92}, wave),
-    {0.08, 0.24, 0.95, 0.92},
-    vertical * 0.72
-  )
-  local livingBlue = mixColor(
-    {0.02, 0.4, 0.92, 0.94},
-    {0.0, 0.78, 1.0, 0.95},
-    wave
-  )
+  local rybR, rybG, rybB, rybA = mixComponents(0.82, 0.05, 0.08, 0.92, 1, 0.76, 0.08, 0.92, wave)
+  rybR, rybG, rybB, rybA = mixComponents(rybR, rybG, rybB, rybA, 0.08, 0.24, 0.95, 0.92, vertical * 0.72)
+  local blueR, blueG, blueB, blueA = mixComponents(0.02, 0.4, 0.92, 0.94, 0, 0.78, 1, 0.95, wave)
+  local r, g, b, a
 
-  local color
   if segment == 0 then
-    color = mixColor(black, redYellowBlue, localT)
+    r, g, b, a = mixComponents(0.015, 0.018, 0.02, 0.94, rybR, rybG, rybB, rybA, localT)
   elseif segment == 1 then
-    color = mixColor(redYellowBlue, livingBlue, localT)
+    r, g, b, a = mixComponents(rybR, rybG, rybB, rybA, blueR, blueG, blueB, blueA, localT)
   elseif segment == 2 then
-    color = mixColor(livingBlue, black, localT)
+    r, g, b, a = mixComponents(blueR, blueG, blueB, blueA, 0.015, 0.018, 0.02, 0.94, localT)
   else
-    color = mixColor(black, black, localT)
+    r, g, b, a = 0.015, 0.018, 0.02, 0.94
   end
 
-  local glint = 0.86 + wave * 0.18
-  return {
-    dark = {color[1] * 0.7, color[2] * 0.76, color[3] * 0.82, color[4]},
-    mid = {color[1] * 0.88, color[2] * 0.94, color[3], color[4]},
-    top = {math.min(color[1] * 1.16, 1), math.min(color[2] * 1.16, 1), math.min(color[3] * 1.18, 1), color[4]},
-    brightness = glint
-  }
+  out.dark[1], out.dark[2], out.dark[3], out.dark[4] = r * 0.7, g * 0.76, b * 0.82, a
+  out.mid[1], out.mid[2], out.mid[3], out.mid[4] = r * 0.88, g * 0.94, b, a
+  out.top[1], out.top[2], out.top[3], out.top[4] = math.min(r * 1.16, 1), math.min(g * 1.16, 1), math.min(b * 1.18, 1), a
+  out.brightness = 0.86 + wave * 0.18
+  return out
 end
 
 local function lineArc(cx, cy, rx, ry, a0, a1, segments)
@@ -106,13 +98,31 @@ end
 
 local function addCube(x, y, z, height, kind)
   for level = 0, height - 1 do
-    tower[#tower + 1] = {
-      x = x,
-      y = y,
-      z = z + level,
-      kind = kind or "mass",
-      seed = love.math.random() * 1000
-    }
+    for sx = 0, 2 do
+      for sy = 0, 2 do
+        for sz = 0, 2 do
+          tower[#tower + 1] = {
+            x = x + sx / 3,
+            y = y + sy / 3,
+            z = z + level + sz / 3,
+            ix = x * 3 + sx,
+            iy = y * 3 + sy,
+            iz = (z + level) * 3 + sz,
+            size = 1 / 3,
+            kind = kind or "mass",
+            seed = love.math.random() * 1000,
+            parentZ = z + level,
+            subIndex = sx + sy * 3 + sz * 9
+          }
+          local cube = tower[#tower]
+          cube.delay = love.math.noise(cube.seed, cube.z * 0.17) * 0.42
+          cube.orbitRadius = 5.8 + (cube.z % 9) * 0.42 + love.math.noise(cube.seed, 4.1) * 3.8
+          cube.orbitPhase = cube.seed * 0.021 + cube.z * 0.16
+          cube.ringBias = math.sin(cube.z * 0.31 + cube.seed) * 0.9
+          cube.coreSortBias = cube.kind == "core" and 0.18 or 0
+        end
+      end
+    end
   end
 end
 
@@ -122,6 +132,35 @@ local function addBlock(x0, y0, z0, width, depth, height, kind)
       addCube(x, y, z0, height, kind)
     end
   end
+end
+
+local function voxelKey(ix, iy, iz)
+  return ix .. ":" .. iy .. ":" .. iz
+end
+
+local function cullInteriorVoxels()
+  local occupied = {}
+  for _, cube in ipairs(tower) do
+    occupied[voxelKey(cube.ix, cube.iy, cube.iz)] = true
+  end
+
+  local visible = {}
+  for _, cube in ipairs(tower) do
+    local ix, iy, iz = cube.ix, cube.iy, cube.iz
+    local exposed =
+      not occupied[voxelKey(ix + 1, iy, iz)] or
+      not occupied[voxelKey(ix - 1, iy, iz)] or
+      not occupied[voxelKey(ix, iy + 1, iz)] or
+      not occupied[voxelKey(ix, iy - 1, iz)] or
+      not occupied[voxelKey(ix, iy, iz + 1)] or
+      not occupied[voxelKey(ix, iy, iz - 1)]
+
+    if exposed then
+      visible[#visible + 1] = cube
+    end
+  end
+
+  tower = visible
 end
 
 local function buildTower()
@@ -163,11 +202,11 @@ local function buildTower()
   addBlock(-1, -1, upperZ + roomH, 2, 2, 7, "spire")
   addBlock(-1, -1, upperZ + roomH + 7, 2, 2, 1, "cap")
 
+  cullInteriorVoxels()
+
   table.sort(tower, function(a, b)
-    local ka = a.kind == "core" and 0.18 or 0
-    local kb = b.kind == "core" and 0.18 or 0
-    local da = a.x + a.y + a.z * 0.08 + ka
-    local db = b.x + b.y + b.z * 0.08 + kb
+    local da = a.x + a.y + a.z * 0.08 + a.coreSortBias
+    local db = b.x + b.y + b.z * 0.08 + b.coreSortBias
     return da < db
   end)
 end
@@ -323,55 +362,69 @@ local function drawTower(w, h)
 
   drawFunctionalRings(originX, originY, baseSize, temperature, humidity, sound, false)
 
-  local drawList = {}
-
-  for _, cube in ipairs(tower) do
-    local delay = love.math.noise(cube.seed, cube.z * 0.17) * 0.42
-    local pull = smoothstep((flowAmount - delay) / 0.58)
-    local orbit = elapsed * (0.75 + sound * 1.35) + cube.seed * 0.021 + cube.z * 0.16
-    local radius = 5.8 + (cube.z % 9) * 0.42 + love.math.noise(cube.seed, 4.1) * 3.8
-    local ringBias = math.sin(cube.z * 0.31 + cube.seed) * 0.9
-    local targetX = math.cos(orbit) * radius
-    local targetY = math.sin(orbit) * radius + ringBias
-    local targetZ = cube.z + math.sin(orbit * 1.4 + cube.seed) * 1.1
-    local x, y = cube.x, cube.y
-    local z = lerp(cube.z, targetZ, pull)
-    x = lerp(cube.x, targetX, pull)
-    y = lerp(cube.y, targetY, pull)
-    drawList[#drawList + 1] = {
-      cube = cube,
-      x = x,
-      y = y,
-      z = z
-    }
+  local useFlowSort = flowAmount > 0.002
+  local renderCount = #tower
+  if useFlowSort then
+    for i = 1, renderCount do
+      local cube = tower[i]
+      local pull = smoothstep((flowAmount - cube.delay) / 0.58)
+      local orbit = elapsed * (0.75 + sound * 1.35) + cube.orbitPhase
+      local targetX = math.cos(orbit) * cube.orbitRadius
+      local targetY = math.sin(orbit) * cube.orbitRadius + cube.ringBias
+      local targetZ = cube.z + math.sin(orbit * 1.4 + cube.seed) * 1.1
+      local item = drawList[i]
+      if not item then
+        item = {}
+        drawList[i] = item
+      end
+      item.cube = cube
+      item.x = lerp(cube.x, targetX, pull)
+      item.y = lerp(cube.y, targetY, pull)
+      item.z = lerp(cube.z, targetZ, pull)
+    end
+    for i = renderCount + 1, #drawList do
+      drawList[i] = nil
+    end
+    table.sort(drawList, function(a, b)
+      return a.x + a.y + a.z * 0.08 + a.cube.coreSortBias < b.x + b.y + b.z * 0.08 + b.cube.coreSortBias
+    end)
   end
 
-  table.sort(drawList, function(a, b)
-    local ka = a.cube.kind == "core" and 0.18 or 0
-    local kb = b.cube.kind == "core" and 0.18 or 0
-    return a.x + a.y + a.z * 0.08 + ka < b.x + b.y + b.z * 0.08 + kb
-  end)
-
-  for _, item in ipairs(drawList) do
+  for i = 1, renderCount do
+    local item = useFlowSort and drawList[i] or tower[i]
     local cube = item.cube
-    local noise = love.math.noise(cube.seed, elapsed * 0.8)
-    local tremor = (noise - 0.5) * sound * baseSize * 0.08
+    if not cube then
+      cube = item
+    end
+    local drawX = useFlowSort and item.x or cube.x
+    local drawY = useFlowSort and item.y or cube.y
+    local drawZ = useFlowSort and item.z or cube.z
+    local tremor = math.sin(elapsed * 0.8 + cube.seed) * sound * baseSize * 0.025
     local grow = temperature * 0.08 + pulse * sound * 0.05
-    local px, py = isoProject(item.x, item.y, item.z * (1 + grow * 0.035), cubeW, cubeH)
     local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
     local flow = math.sin(elapsed * 0.7 + cube.z * 0.37 + cube.x * 0.21) * 0.5 + 0.5
-    local palette = getColorCyclePalette(item.z, cube.seed)
+    local palette = getColorCyclePalette(drawZ, cube.seed, paletteScratch)
     local brightness = kindBoost * palette.brightness * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * (0.025 + flowAmount * 0.02))
     local alpha = 0.82 + humidity * 0.08
     local accent
 
-    if cube.z % 12 == 0 and cube.kind ~= "base" then
+    if cube.parentZ % 12 == 0 and cube.kind ~= "base" and cube.subIndex % 5 == 0 then
       accent = {0.92, 0.08, 0.18, 0.18 + temperature * 0.08}
-    elseif (cube.x + cube.y + cube.z) % 17 == 0 then
+    elseif math.floor((cube.x + cube.y + cube.z) * 3) % 17 == 0 then
       accent = {0.0, 0.72, 0.78, 0.14 + humidity * 0.08}
     end
 
-    drawCube(originX + px + tremor, originY + py - tremor * 0.4, baseSize * (0.98 + grow * 0.04), temperature * 0.06, palette, brightness, alpha, accent)
+    local px, py = isoProject(drawX, drawY, drawZ * (1 + grow * 0.035), cubeW, cubeH)
+    drawCube(
+      originX + px + tremor,
+      originY + py - tremor * 0.4,
+      baseSize * cube.size * (1.08 + grow * 0.025),
+      temperature * 0.02,
+      palette,
+      brightness,
+      alpha,
+      accent
+    )
   end
 
   drawFunctionalRings(originX, originY, baseSize, temperature, humidity, sound, true)
