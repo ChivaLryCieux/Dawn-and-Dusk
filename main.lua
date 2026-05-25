@@ -76,7 +76,8 @@ local function buildTower()
   local leftX = -6
   local centerX = -2
   local rightX = 2
-  local boxY = -2
+  local frontY = -4
+  local backY = 0
   local boxW = 4
   local boxD = 4
   local high = 7
@@ -90,22 +91,22 @@ local function buildTower()
   addBlock(-1, -1, 0, 2, 2, upperZ + 9, "core")
   addBlock(0, -1, 5, 1, 2, upperZ + 4, "core")
 
-  addBlock(leftX, boxY, bottomZ, boxW, boxD, high, "base")
-  addBlock(centerX, boxY, bottomZ, boxW, boxD, low, "base")
-  addBlock(rightX, boxY, bottomZ, boxW, boxD, mid, "base")
+  addBlock(leftX, frontY, bottomZ, boxW, boxD, high, "base")
+  addBlock(rightX, frontY, bottomZ, boxW, boxD, low, "base")
+  addBlock(centerX, backY, bottomZ, boxW, boxD, mid, "base")
 
-  addBlock(leftX, boxY, middleZ, boxW, boxD, high, "cantilever")
-  addBlock(centerX, boxY, middleZ, boxW, boxD, low, "shaft")
-  addBlock(rightX, boxY, middleZ, boxW, boxD, mid, "cantilever")
+  addBlock(leftX, frontY, middleZ, boxW, boxD, high, "cantilever")
+  addBlock(rightX, frontY, middleZ, boxW, boxD, low, "shaft")
+  addBlock(centerX, backY, middleZ, boxW, boxD, mid, "cantilever")
 
-  addBlock(centerX, boxY, upperZ, boxW, boxD, low, "crown")
+  addBlock(centerX, -2, upperZ, boxW, boxD, low, "crown")
   addBlock(-1, -1, upperZ + low, 2, 2, 7, "spire")
   addBlock(-1, -1, upperZ + low + 7, 2, 2, 1, "cap")
 
   -- Rear volumes imply the hidden spaces from this viewing angle without
   -- exceeding the shared outer envelope.
-  addBlock(leftX, 0, middleZ - 1, boxW, 2, low, "crown")
-  addBlock(rightX, 0, bottomZ + 1, boxW, 2, low, "crown")
+  addBlock(leftX, backY, middleZ - 1, boxW, 2, low, "crown")
+  addBlock(rightX, backY, bottomZ + 1, boxW, 2, low, "crown")
 
   table.sort(tower, function(a, b)
     local ka = a.kind == "core" and 0.18 or 0
