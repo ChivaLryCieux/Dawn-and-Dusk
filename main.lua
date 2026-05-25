@@ -73,11 +73,14 @@ local function buildTower()
 
   -- Voxel silhouette of Guiyang Eco Conference Center. The visible space boxes
   -- share one envelope and extend the same distance from the central axis.
-  local leftX = -6
+  local cornerAX = 1
+  local cornerAY = 3
+  local cornerBX = 1
+  local cornerBY = -7
+  local cornerCX = -5
+  local cornerCY = 3
   local centerX = -2
-  local rightX = 2
-  local frontY = -4
-  local backY = 0
+  local centerY = -2
   local boxW = 4
   local boxD = 4
   local high = 7
@@ -91,22 +94,17 @@ local function buildTower()
   addBlock(-1, -1, 0, 2, 2, upperZ + 9, "core")
   addBlock(0, -1, 5, 1, 2, upperZ + 4, "core")
 
-  addBlock(leftX, frontY, bottomZ, boxW, boxD, high, "base")
-  addBlock(rightX, frontY, bottomZ, boxW, boxD, low, "base")
-  addBlock(centerX, backY, bottomZ, boxW, boxD, mid, "base")
+  addBlock(cornerAX, cornerAY, bottomZ, boxW, boxD, high, "base")
+  addBlock(cornerBX, cornerBY, bottomZ, boxW, boxD, low, "base")
+  addBlock(cornerCX, cornerCY, bottomZ, boxW, boxD, mid, "base")
 
-  addBlock(leftX, frontY, middleZ, boxW, boxD, high, "cantilever")
-  addBlock(rightX, frontY, middleZ, boxW, boxD, low, "shaft")
-  addBlock(centerX, backY, middleZ, boxW, boxD, mid, "cantilever")
+  addBlock(cornerAX, cornerAY, middleZ, boxW, boxD, high, "cantilever")
+  addBlock(cornerBX, cornerBY, middleZ, boxW, boxD, low, "shaft")
+  addBlock(cornerCX, cornerCY, middleZ, boxW, boxD, mid, "cantilever")
 
-  addBlock(centerX, -2, upperZ, boxW, boxD, low, "crown")
+  addBlock(centerX, centerY, upperZ, boxW, boxD, low, "crown")
   addBlock(-1, -1, upperZ + low, 2, 2, 7, "spire")
   addBlock(-1, -1, upperZ + low + 7, 2, 2, 1, "cap")
-
-  -- Rear volumes imply the hidden spaces from this viewing angle without
-  -- exceeding the shared outer envelope.
-  addBlock(leftX, backY, middleZ - 1, boxW, 2, low, "crown")
-  addBlock(rightX, backY, bottomZ + 1, boxW, 2, low, "crown")
 
   table.sort(tower, function(a, b)
     local ka = a.kind == "core" and 0.18 or 0
