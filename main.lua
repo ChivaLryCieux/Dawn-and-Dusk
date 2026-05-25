@@ -71,31 +71,41 @@ end
 local function buildTower()
   tower = {}
 
-  -- Voxel silhouette of Guiyang Eco Conference Center: stacked glass boxes,
-  -- left/right cantilevers, dark vertical service cores, and a narrow top tower.
-  addBlock(-1, -1, 0, 2, 2, 30, "core")
-  addBlock(1, -1, 4, 1, 2, 20, "core")
+  -- Voxel silhouette of Guiyang Eco Conference Center. The visible space boxes
+  -- share one envelope and extend the same distance from the central axis.
+  local leftX = -6
+  local centerX = -2
+  local rightX = 2
+  local boxY = -2
+  local boxW = 4
+  local boxD = 4
+  local high = 7
+  local low = 5
+  local mid = 6
+  local gap = 3
+  local bottomZ = 0
+  local middleZ = bottomZ + high + gap
+  local upperZ = middleZ + high + gap
 
-  addBlock(-2, -2, 0, 4, 4, 7, "base")
-  addBlock(-5, -2, 1, 3, 4, 6, "base")
-  addBlock(2, -2, 1, 3, 4, 7, "base")
+  addBlock(-1, -1, 0, 2, 2, upperZ + 9, "core")
+  addBlock(0, -1, 5, 1, 2, upperZ + 4, "core")
 
-  addBlock(-2, -2, 7, 4, 4, 7, "shaft")
-  addBlock(-6, -2, 9, 4, 4, 5, "cantilever")
-  addBlock(2, -2, 9, 4, 4, 5, "cantilever")
+  addBlock(leftX, boxY, bottomZ, boxW, boxD, high, "base")
+  addBlock(centerX, boxY, bottomZ, boxW, boxD, low, "base")
+  addBlock(rightX, boxY, bottomZ, boxW, boxD, mid, "base")
 
-  addBlock(-2, -2, 14, 4, 4, 5, "shaft")
-  addBlock(-4, -2, 15, 2, 4, 4, "crown")
-  addBlock(2, -2, 15, 2, 4, 4, "crown")
+  addBlock(leftX, boxY, middleZ, boxW, boxD, high, "cantilever")
+  addBlock(centerX, boxY, middleZ, boxW, boxD, low, "shaft")
+  addBlock(rightX, boxY, middleZ, boxW, boxD, mid, "cantilever")
 
-  addBlock(-2, -2, 19, 4, 4, 3, "crown")
-  addBlock(-1, -1, 22, 2, 2, 8, "spire")
-  addBlock(-1, -1, 30, 2, 2, 1, "cap")
+  addBlock(centerX, boxY, upperZ, boxW, boxD, low, "crown")
+  addBlock(-1, -1, upperZ + low, 2, 2, 7, "spire")
+  addBlock(-1, -1, upperZ + low + 7, 2, 2, 1, "cap")
 
-  -- Small negative-looking gaps in the main mass are represented by offset dark
-  -- service columns, matching the exposed mechanical spine in the reference.
-  addCube(-2, 0, 11, 5, "core")
-  addCube(2, 0, 12, 5, "core")
+  -- Rear volumes imply the hidden spaces from this viewing angle without
+  -- exceeding the shared outer envelope.
+  addBlock(leftX, 0, middleZ - 1, boxW, 2, low, "crown")
+  addBlock(rightX, 0, bottomZ + 1, boxW, 2, low, "crown")
 
   table.sort(tower, function(a, b)
     local ka = a.kind == "core" and 0.18 or 0
