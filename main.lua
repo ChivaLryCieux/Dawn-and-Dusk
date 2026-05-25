@@ -73,12 +73,12 @@ local function buildTower()
 
   -- Voxel silhouette of Guiyang Eco Conference Center. The visible space boxes
   -- share one envelope and extend the same distance from the central axis.
-  local cornerAX = 1
-  local cornerAY = 3
-  local cornerBX = 1
-  local cornerBY = -7
-  local cornerCX = -5
-  local cornerCY = 3
+  local cornerAX = 2
+  local cornerAY = 2
+  local cornerBX = 2
+  local cornerBY = -4
+  local cornerCX = -4
+  local cornerCY = 2
   local centerX = -2
   local centerY = -2
   local boxW = 4
