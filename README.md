@@ -4,9 +4,9 @@ LOVE2D realtime projection sketch for a Guiyang bamboo-fungus-inspired tower mad
 
 Current input mode uses `love.math.noise` to simulate three sensor channels:
 
-- Temperature: acid color heat, vertical deformation, halo intensity
-- Humidity: mist density, drip length, background diffusion
-- Sound: pulse size, glitch rings, cube tremor
+- Temperature: red accent intensity, vertical deformation, upper ring scale
+- Humidity: cyan translucency, glass-like face tint, lower ring scale
+- Sound: structural tremor, broken-ring motion, functional band drift
 
 Run:
 

@@ -1,4 +1,5 @@
 local lg = love.graphics
+local TAU = math.pi * 2
 
 local sensors = {
   temperature = 0.52,
@@ -35,6 +36,16 @@ end
 
 local function shadeColor(color, factor, alpha)
   return color[1] * factor, color[2] * factor, color[3] * factor, alpha or color[4] or 1
+end
+
+local function lineArc(cx, cy, rx, ry, a0, a1, segments)
+  local points = {}
+  for i = 0, segments do
+    local t = a0 + (a1 - a0) * i / segments
+    points[#points + 1] = cx + math.cos(t) * rx
+    points[#points + 1] = cy + math.sin(t) * ry
+  end
+  lg.line(points)
 end
 
 local function addCube(x, y, z, height, kind)
@@ -112,22 +123,51 @@ local function updateSensors(dt)
   sensors.sound = lerp(sensors.sound, sensorTargets.sound, response * 0.45)
 end
 
-local function drawCube(cx, cy, size, lift, palette, brightness, alpha)
+local function drawCube(cx, cy, size, lift, palette, brightness, alpha, accent)
   local hw = size * 0.5
   local hh = size * 0.27
   local h = size * (0.58 + lift)
 
-  lg.setColor(shadeColor(palette.dark, brightness * 0.78, alpha))
+  lg.setColor(shadeColor(palette.dark, brightness * 0.88, alpha * 0.96))
   lg.polygon("fill", cx - hw, cy, cx, cy + hh, cx, cy + hh + h, cx - hw, cy + h)
 
-  lg.setColor(shadeColor(palette.mid, brightness * 0.95, alpha))
+  lg.setColor(shadeColor(palette.mid, brightness * 0.98, alpha * 0.94))
   lg.polygon("fill", cx + hw, cy, cx, cy + hh, cx, cy + hh + h, cx + hw, cy + h)
 
-  lg.setColor(shadeColor(palette.top, brightness * 1.14, alpha))
+  lg.setColor(shadeColor(palette.top, brightness * 1.06, alpha))
   lg.polygon("fill", cx, cy - hh, cx + hw, cy, cx, cy + hh, cx - hw, cy)
 
-  lg.setColor(0.18, 0.42, 0.18, 0.16 * alpha)
-  lg.polygon("line", cx, cy - hh, cx + hw, cy, cx + hw, cy + h, cx, cy + hh + h, cx - hw, cy + h, cx - hw, cy)
+  if accent then
+    lg.setColor(accent[1], accent[2], accent[3], accent[4] * alpha)
+    lg.polygon("fill", cx - hw * 0.72, cy - hh * 0.1, cx - hw * 0.2, cy + hh * 0.18, cx - hw * 0.2, cy + h * 0.18, cx - hw * 0.72, cy + h * 0.04)
+  end
+
+end
+
+local function drawFunctionalRing(cx, cy, radius, humidity, sound, phase, front)
+  local rx = radius
+  local ry = radius * 0.23
+  local y = cy + radius * 0.08
+  local alpha = front and 0.5 or 0.22
+
+  lg.setLineWidth(2)
+  lg.setColor(0.68, 0.7, 0.7, alpha * 0.38)
+  lineArc(cx, y, rx * 1.08, ry * 1.08, front and 0 or math.pi, front and math.pi or TAU, 80)
+
+  lg.setLineWidth(4 + sound * 3)
+  lg.setColor(0.02, 0.035, 0.04, alpha * (0.42 + sound * 0.32))
+  lineArc(cx, y, rx, ry, phase + 0.15, phase + 0.92, 24)
+  lineArc(cx, y, rx, ry, phase + 2.7, phase + 3.34, 20)
+
+  lg.setLineWidth(3)
+  lg.setColor(0.0, 0.72, 0.78, alpha * (0.55 + humidity * 0.28))
+  lineArc(cx, y, rx * 1.2, ry * 1.2, phase + 3.55, phase + 4.4, 24)
+
+  lg.setLineWidth(3)
+  lg.setColor(0.92, 0.08, 0.18, alpha * 0.82)
+  lineArc(cx, y, rx * 1.28, ry * 1.28, phase + 5.1, phase + 5.72, 20)
+
+  lg.setLineWidth(1)
 end
 
 local function drawTower(w, h)
@@ -142,10 +182,13 @@ local function drawTower(w, h)
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sound * 8)) * 0.5
 
   local palette = {
-    dark = {0.68 - humidity * 0.08, 0.76 + humidity * 0.08, 0.64, 1},
-    mid = {0.78 + temperature * 0.08, 0.9, 0.7 + humidity * 0.06, 1},
-    top = {0.92 + temperature * 0.04, 0.98, 0.82 + humidity * 0.05, 1}
+    dark = {0.73 - humidity * 0.05, 0.75 + humidity * 0.04, 0.75 + humidity * 0.03, 1},
+    mid = {0.84 + temperature * 0.03, 0.87 + humidity * 0.04, 0.88 + humidity * 0.04, 1},
+    top = {0.96, 0.97 + humidity * 0.02, 0.97 + humidity * 0.02, 1}
   }
+
+  drawFunctionalRing(originX, originY - baseSize * 5.1, baseSize * (4.6 + humidity * 1.2), humidity, sound, elapsed * (0.22 + sound * 0.55), false)
+  drawFunctionalRing(originX, originY - baseSize * 10.4, baseSize * (3.2 + temperature * 0.9), humidity, sound, -elapsed * (0.16 + sound * 0.38), false)
 
   for _, cube in ipairs(tower) do
     local noise = love.math.noise(cube.seed, elapsed * 0.8)
@@ -153,12 +196,21 @@ local function drawTower(w, h)
     local grow = temperature * 0.2 + pulse * sound * 0.2
     local px, py = isoProject(cube.x, cube.y, cube.z * (1 + grow * 0.035), cubeW, cubeH)
     local kindBoost = cube.kind == "spire" and 1.18 or cube.kind == "crown" and 1.08 or 1
-    local brightness = kindBoost * (0.74 + cube.z * 0.018 + temperature * 0.2 + noise * 0.09)
-    local alpha = 0.9 + humidity * 0.08
+    local brightness = kindBoost * (0.86 + cube.z * 0.01 + temperature * 0.07 + noise * 0.035)
+    local alpha = 0.82 + humidity * 0.12
+    local accent
 
-    drawCube(originX + px + tremor, originY + py - tremor * 0.4, baseSize * (0.98 + grow * 0.08), temperature * 0.16, palette, brightness, alpha)
+    if cube.z % 9 == 0 and cube.kind ~= "base" then
+      accent = {0.92, 0.08, 0.18, 0.52 + temperature * 0.24}
+    elseif (cube.x + cube.y + cube.z) % 11 == 0 then
+      accent = {0.0, 0.72, 0.78, 0.42 + humidity * 0.18}
+    end
+
+    drawCube(originX + px + tremor, originY + py - tremor * 0.4, baseSize * (0.98 + grow * 0.08), temperature * 0.16, palette, brightness, alpha, accent)
   end
 
+  drawFunctionalRing(originX, originY - baseSize * 5.1, baseSize * (4.6 + humidity * 1.2), humidity, sound, elapsed * (0.22 + sound * 0.55), true)
+  drawFunctionalRing(originX, originY - baseSize * 10.4, baseSize * (3.2 + temperature * 0.9), humidity, sound, -elapsed * (0.16 + sound * 0.38), true)
 end
 
 function love.load()
@@ -176,6 +228,7 @@ end
 function love.draw()
   local w, h = lg.getDimensions()
   lg.clear(1, 1, 1, 1)
+  lg.setBlendMode("alpha")
   drawTower(w, h)
 end
 
