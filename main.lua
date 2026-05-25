@@ -45,6 +45,55 @@ local function shadeColor(color, factor, alpha)
   return color[1] * factor, color[2] * factor, color[3] * factor, alpha or color[4] or 1
 end
 
+local function mixColor(a, b, t)
+  return {
+    lerp(a[1], b[1], t),
+    lerp(a[2], b[2], t),
+    lerp(a[3], b[3], t),
+    lerp(a[4] or 1, b[4] or 1, t)
+  }
+end
+
+local function getColorCyclePalette(z, seed)
+  local segmentDuration = 10
+  local cycle = (elapsed % (segmentDuration * 4)) / segmentDuration
+  local segment = math.floor(cycle)
+  local localT = smoothstep(cycle - segment)
+  local wave = math.sin(elapsed * 0.55 + z * 0.42 + seed * 0.013) * 0.5 + 0.5
+  local vertical = math.sin(elapsed * 0.28 - z * 0.18) * 0.5 + 0.5
+
+  local black = {0.015, 0.018, 0.02, 0.94}
+  local redYellowBlue = mixColor(
+    mixColor({0.82, 0.05, 0.08, 0.92}, {1.0, 0.76, 0.08, 0.92}, wave),
+    {0.08, 0.24, 0.95, 0.92},
+    vertical * 0.72
+  )
+  local livingBlue = mixColor(
+    {0.02, 0.4, 0.92, 0.94},
+    {0.0, 0.78, 1.0, 0.95},
+    wave
+  )
+
+  local color
+  if segment == 0 then
+    color = mixColor(black, redYellowBlue, localT)
+  elseif segment == 1 then
+    color = mixColor(redYellowBlue, livingBlue, localT)
+  elseif segment == 2 then
+    color = mixColor(livingBlue, black, localT)
+  else
+    color = mixColor(black, black, localT)
+  end
+
+  local glint = 0.86 + wave * 0.18
+  return {
+    dark = {color[1] * 0.7, color[2] * 0.76, color[3] * 0.82, color[4]},
+    mid = {color[1] * 0.88, color[2] * 0.94, color[3], color[4]},
+    top = {math.min(color[1] * 1.16, 1), math.min(color[2] * 1.16, 1), math.min(color[3] * 1.18, 1), color[4]},
+    brightness = glint
+  }
+end
+
 local function lineArc(cx, cy, rx, ry, a0, a1, segments)
   local points = {}
   for i = 0, segments do
@@ -272,12 +321,6 @@ local function drawTower(w, h)
   local sound = sensors.sound
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sound * 8)) * 0.5
 
-  local palette = {
-    dark = {0.73 - humidity * 0.05, 0.75 + humidity * 0.04, 0.75 + humidity * 0.03, 1},
-    mid = {0.84 + temperature * 0.03, 0.87 + humidity * 0.04, 0.88 + humidity * 0.04, 1},
-    top = {0.96, 0.97 + humidity * 0.02, 0.97 + humidity * 0.02, 1}
-  }
-
   drawFunctionalRings(originX, originY, baseSize, temperature, humidity, sound, false)
 
   local drawList = {}
@@ -317,7 +360,8 @@ local function drawTower(w, h)
     local px, py = isoProject(item.x, item.y, item.z * (1 + grow * 0.035), cubeW, cubeH)
     local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
     local flow = math.sin(elapsed * 0.7 + cube.z * 0.37 + cube.x * 0.21) * 0.5 + 0.5
-    local brightness = kindBoost * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * (0.025 + flowAmount * 0.02))
+    local palette = getColorCyclePalette(item.z, cube.seed)
+    local brightness = kindBoost * palette.brightness * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * (0.025 + flowAmount * 0.02))
     local alpha = 0.82 + humidity * 0.08
     local accent
 
