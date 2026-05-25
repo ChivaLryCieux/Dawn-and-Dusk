@@ -17,6 +17,12 @@ local sensorSeed = 37.219
 local paused = false
 local flowTarget = false
 local flowAmount = 0
+local mouseX = 0
+local mouseY = 0
+local mouseSpeed = 0
+local spinPhase = 0
+local spinSpeed = 0.28
+local spinTargetSpeed = 0.28
 local elapsed = 0
 local tower = {}
 local drawList = {}
@@ -251,6 +257,18 @@ local function updateFlow(dt)
   end
 end
 
+local function updateMouseSpin(dt)
+  local x, y = love.mouse.getPosition()
+  local distance = math.sqrt((x - mouseX) * (x - mouseX) + (y - mouseY) * (y - mouseY))
+  mouseX, mouseY = x, y
+
+  local instantSpeed = clamp(distance / math.max(dt, 0.001) / 2200, 0, 1)
+  mouseSpeed = lerp(mouseSpeed, instantSpeed, 1 - math.exp(-dt * 5))
+  spinTargetSpeed = 0.28 + mouseSpeed * 1.65
+  spinSpeed = lerp(spinSpeed, spinTargetSpeed, 1 - math.exp(-dt * 4))
+  spinPhase = spinPhase + spinSpeed * dt
+end
+
 local function drawCube(cx, cy, size, lift, palette, brightness, alpha, accent)
   local hw = size * 0.5
   local hh = size * 0.27
@@ -273,8 +291,7 @@ local function drawCube(cx, cy, size, lift, palette, brightness, alpha, accent)
 end
 
 local function drawFunctionalRing(cx, cy, baseSize, ring, temperature, humidity, sound, front)
-  local flowBoost = flowAmount * 1.75
-  local phase = ring.phase + elapsed * (ring.speed + flowBoost + sound * ring.soundSpeed)
+  local phase = ring.phase - spinPhase * ring.speedScale
   local radius = baseSize * (ring.radius + humidity * ring.humidityScale + temperature * ring.temperatureScale)
   local rx = radius
   local ry = radius * ring.flatness
@@ -313,7 +330,7 @@ local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity,
   local rings = {
     {
       z = 4.2, radius = 8.0, width = 4.8, ghostWidth = 1.8, soundWidth = 1.8,
-      flatness = 0.24, drop = 0.08, speed = 0.28, soundSpeed = 0.35,
+      flatness = 0.24, drop = 0.08, speedScale = 1.0, soundSpeed = 0.35,
       phase = 0.1, humidityScale = 0.7, temperatureScale = 0.1,
       frontAlpha = 0.42, backAlpha = 0.16, ghostAlpha = 0.42, ghostScale = 1.08,
       baseColor = {0.08, 0.095, 0.1, 0.62}, accentColor = {0.0, 0.72, 0.78, 0.78},
@@ -321,7 +338,7 @@ local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity,
     },
     {
       z = 8.2, radius = 5.8, width = 2.2, ghostWidth = 1.2, soundWidth = 0.8,
-      flatness = 0.21, drop = 0.06, speed = -0.16, soundSpeed = 0.12,
+      flatness = 0.21, drop = 0.06, speedScale = 0.58, soundSpeed = 0.12,
       phase = 1.4, humidityScale = 0.25, temperatureScale = 0.2,
       frontAlpha = 0.3, backAlpha = 0.12, ghostAlpha = 0.32, ghostScale = 1.02,
       baseColor = {0.82, 0.84, 0.84, 0.44}, accentColor = {0.92, 0.08, 0.18, 0.7},
@@ -329,7 +346,7 @@ local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity,
     },
     {
       z = 12.3, radius = 9.2, width = 5.4, ghostWidth = 1.6, soundWidth = 2.4,
-      flatness = 0.25, drop = 0.085, speed = 0.44, soundSpeed = 0.55,
+      flatness = 0.25, drop = 0.085, speedScale = 1.28, soundSpeed = 0.55,
       phase = 2.2, humidityScale = 0.8, temperatureScale = 0.05,
       frontAlpha = 0.38, backAlpha = 0.14, ghostAlpha = 0.3, ghostScale = 1.12,
       baseColor = {0.05, 0.06, 0.065, 0.58}, accentColor = {0.0, 0.72, 0.78, 0.82},
@@ -338,7 +355,7 @@ local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity,
     },
     {
       z = 17.0, radius = 6.9, width = 3.0, ghostWidth = 1.3, soundWidth = 1.1,
-      flatness = 0.22, drop = 0.07, speed = -0.32, soundSpeed = 0.25,
+      flatness = 0.22, drop = 0.07, speedScale = 0.82, soundSpeed = 0.25,
       phase = 0.8, humidityScale = 0.2, temperatureScale = 0.65,
       frontAlpha = 0.34, backAlpha = 0.13, ghostAlpha = 0.36, ghostScale = 1.14,
       baseColor = {0.92, 0.08, 0.18, 0.62}, accentColor = {0.08, 0.095, 0.1, 0.68},
@@ -346,7 +363,7 @@ local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity,
     },
     {
       z = 24.0, radius = 4.6, width = 2.0, ghostWidth = 1.0, soundWidth = 0.6,
-      flatness = 0.2, drop = 0.055, speed = 0.12, soundSpeed = 0.15,
+      flatness = 0.2, drop = 0.055, speedScale = 0.38, soundSpeed = 0.15,
       phase = 3.1, humidityScale = 0.18, temperatureScale = 0.32,
       frontAlpha = 0.28, backAlpha = 0.1, ghostAlpha = 0.34, ghostScale = 1.18,
       baseColor = {0.0, 0.72, 0.78, 0.54}, accentColor = {0.86, 0.88, 0.88, 0.42},
@@ -378,7 +395,7 @@ local function drawTower(w, h)
     for i = 1, renderCount do
       local cube = tower[i]
       local pull = smoothstep((flowAmount - cube.delay) / 0.58)
-      local orbit = elapsed * (0.75 + sound * 1.35) + cube.orbitPhase
+      local orbit = -spinPhase * 1.1 + cube.orbitPhase
       local targetX = math.cos(orbit) * cube.orbitRadius
       local targetY = math.sin(orbit) * cube.orbitRadius + cube.ringBias
       local targetZ = cube.z + math.sin(orbit * 1.4 + cube.seed) * 1.1
@@ -443,6 +460,7 @@ end
 function love.load()
   love.math.setRandomSeed(os.time())
   lg.setDefaultFilter("linear", "linear")
+  mouseX, mouseY = love.mouse.getPosition()
   buildTower()
 end
 
@@ -450,6 +468,7 @@ function love.update(dt)
   dt = math.min(dt, 1 / 30)
   elapsed = elapsed + dt
   updateFlow(dt)
+  updateMouseSpin(dt)
   updateSensors(dt)
 end
 
