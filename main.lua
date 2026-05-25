@@ -60,44 +60,48 @@ local function addCube(x, y, z, height, kind)
   end
 end
 
+local function addBlock(x0, y0, z0, width, depth, height, kind)
+  for x = x0, x0 + width - 1 do
+    for y = y0, y0 + depth - 1 do
+      addCube(x, y, z0, height, kind)
+    end
+  end
+end
+
 local function buildTower()
   tower = {}
 
-  -- A modular silhouette based on grouped cube shafts: wide base, tapered body,
-  -- offset crowns, and a hollowed central light well.
-  for x = -4, 4 do
-    for y = -3, 3 do
-      local edge = math.max(math.abs(x) / 4, math.abs(y) / 3)
-      local height = math.floor(lerp(7, 3, edge))
-      if math.abs(x) < 2 and math.abs(y) < 1 then
-        height = height - 2
-      end
-      addCube(x, y, 0, math.max(1, height), "base")
-    end
-  end
+  -- Voxel silhouette of Guiyang Eco Conference Center: stacked glass boxes,
+  -- left/right cantilevers, dark vertical service cores, and a narrow top tower.
+  addBlock(-1, -1, 0, 2, 2, 30, "core")
+  addBlock(1, -1, 4, 1, 2, 20, "core")
 
-  local shafts = {
-    {-2, -1, 7, 10}, {0, -1, 6, 13}, {2, -1, 7, 11},
-    {-2, 1, 6, 9}, {0, 1, 7, 14}, {2, 1, 6, 10},
-    {-3, 0, 5, 8}, {3, 0, 5, 8}
-  }
+  addBlock(-2, -2, 0, 4, 4, 7, "base")
+  addBlock(-5, -2, 1, 3, 4, 6, "base")
+  addBlock(2, -2, 1, 3, 4, 7, "base")
 
-  for _, shaft in ipairs(shafts) do
-    addCube(shaft[1], shaft[2], shaft[3], shaft[4], "shaft")
-  end
+  addBlock(-2, -2, 7, 4, 4, 7, "shaft")
+  addBlock(-6, -2, 9, 4, 4, 5, "cantilever")
+  addBlock(2, -2, 9, 4, 4, 5, "cantilever")
 
-  for x = -3, 3 do
-    addCube(x, -2, 15 + math.abs(x % 2), 2, "crown")
-    addCube(x, 2, 14 + math.abs(x % 2), 2, "crown")
-  end
+  addBlock(-2, -2, 14, 4, 4, 5, "shaft")
+  addBlock(-4, -2, 15, 2, 4, 4, "crown")
+  addBlock(2, -2, 15, 2, 4, 4, "crown")
 
-  addCube(-1, 0, 18, 5, "spire")
-  addCube(0, 0, 19, 7, "spire")
-  addCube(1, 0, 18, 5, "spire")
+  addBlock(-2, -2, 19, 4, 4, 3, "crown")
+  addBlock(-1, -1, 22, 2, 2, 8, "spire")
+  addBlock(-1, -1, 30, 2, 2, 1, "cap")
+
+  -- Small negative-looking gaps in the main mass are represented by offset dark
+  -- service columns, matching the exposed mechanical spine in the reference.
+  addCube(-2, 0, 11, 5, "core")
+  addCube(2, 0, 12, 5, "core")
 
   table.sort(tower, function(a, b)
-    local da = a.x + a.y + a.z * 0.08
-    local db = b.x + b.y + b.z * 0.08
+    local ka = a.kind == "core" and 0.18 or 0
+    local kb = b.kind == "core" and 0.18 or 0
+    local da = a.x + a.y + a.z * 0.08 + ka
+    local db = b.x + b.y + b.z * 0.08 + kb
     return da < db
   end)
 end
@@ -192,21 +196,22 @@ local function drawTower(w, h)
 
   for _, cube in ipairs(tower) do
     local noise = love.math.noise(cube.seed, elapsed * 0.8)
-    local tremor = (noise - 0.5) * sound * baseSize * 0.28
-    local grow = temperature * 0.2 + pulse * sound * 0.2
+    local tremor = (noise - 0.5) * sound * baseSize * 0.08
+    local grow = temperature * 0.08 + pulse * sound * 0.05
     local px, py = isoProject(cube.x, cube.y, cube.z * (1 + grow * 0.035), cubeW, cubeH)
-    local kindBoost = cube.kind == "spire" and 1.18 or cube.kind == "crown" and 1.08 or 1
-    local brightness = kindBoost * (0.86 + cube.z * 0.01 + temperature * 0.07 + noise * 0.035)
-    local alpha = 0.82 + humidity * 0.12
+    local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
+    local flow = math.sin(elapsed * 0.7 + cube.z * 0.37 + cube.x * 0.21) * 0.5 + 0.5
+    local brightness = kindBoost * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * 0.025)
+    local alpha = 0.82 + humidity * 0.08
     local accent
 
-    if cube.z % 9 == 0 and cube.kind ~= "base" then
-      accent = {0.92, 0.08, 0.18, 0.52 + temperature * 0.24}
-    elseif (cube.x + cube.y + cube.z) % 11 == 0 then
-      accent = {0.0, 0.72, 0.78, 0.42 + humidity * 0.18}
+    if cube.z % 12 == 0 and cube.kind ~= "base" then
+      accent = {0.92, 0.08, 0.18, 0.18 + temperature * 0.08}
+    elseif (cube.x + cube.y + cube.z) % 17 == 0 then
+      accent = {0.0, 0.72, 0.78, 0.14 + humidity * 0.08}
     end
 
-    drawCube(originX + px + tremor, originY + py - tremor * 0.4, baseSize * (0.98 + grow * 0.08), temperature * 0.16, palette, brightness, alpha, accent)
+    drawCube(originX + px + tremor, originY + py - tremor * 0.4, baseSize * (0.98 + grow * 0.04), temperature * 0.06, palette, brightness, alpha, accent)
   end
 
   drawFunctionalRing(originX, originY - baseSize * 5.1, baseSize * (4.6 + humidity * 1.2), humidity, sound, elapsed * (0.22 + sound * 0.55), true)
