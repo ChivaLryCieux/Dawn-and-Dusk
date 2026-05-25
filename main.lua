@@ -56,17 +56,27 @@ local function mixComponents(ar, ag, ab, aa, br, bg, bb, ba, t)
   return lerp(ar, br, t), lerp(ag, bg, t), lerp(ab, bb, t), lerp(aa, ba, t)
 end
 
-local function getColorCyclePalette(z, seed, out)
+local function getColorCyclePalette(x, y, z, out)
   local segmentDuration = 10
   local cycle = (elapsed % (segmentDuration * 4)) / segmentDuration
   local segment = math.floor(cycle)
   local localT = smoothstep(cycle - segment)
-  local wave = math.sin(elapsed * 0.55 + z * 0.42 + seed * 0.013) * 0.5 + 0.5
-  local vertical = math.sin(elapsed * 0.28 - z * 0.18) * 0.5 + 0.5
+  local heightBand = clamp((z + 1) / 34, 0, 1)
+  local diagonal = clamp(((x - y) + 14) / 28, 0, 1)
+  local sweep = clamp(heightBand + math.sin(elapsed * 0.12) * 0.18 + diagonal * 0.08, 0, 1)
+  local band = smoothstep(sweep)
+  local rybR, rybG, rybB, rybA
 
-  local rybR, rybG, rybB, rybA = mixComponents(0.82, 0.05, 0.08, 0.92, 1, 0.76, 0.08, 0.92, wave)
-  rybR, rybG, rybB, rybA = mixComponents(rybR, rybG, rybB, rybA, 0.08, 0.24, 0.95, 0.92, vertical * 0.72)
-  local blueR, blueG, blueB, blueA = mixComponents(0.02, 0.4, 0.92, 0.94, 0, 0.78, 1, 0.95, wave)
+  if band < 0.5 then
+    local t = smoothstep(band * 2)
+    rybR, rybG, rybB, rybA = mixComponents(0.82, 0.05, 0.08, 0.92, 1, 0.76, 0.08, 0.92, t)
+  else
+    local t = smoothstep((band - 0.5) * 2)
+    rybR, rybG, rybB, rybA = mixComponents(1, 0.76, 0.08, 0.92, 0.08, 0.24, 0.95, 0.92, t)
+  end
+
+  local blueLift = smoothstep(clamp(heightBand + diagonal * 0.12, 0, 1))
+  local blueR, blueG, blueB, blueA = mixComponents(0.02, 0.36, 0.88, 0.94, 0, 0.78, 1, 0.95, blueLift)
   local r, g, b, a
 
   if segment == 0 then
@@ -82,7 +92,7 @@ local function getColorCyclePalette(z, seed, out)
   out.dark[1], out.dark[2], out.dark[3], out.dark[4] = r * 0.7, g * 0.76, b * 0.82, a
   out.mid[1], out.mid[2], out.mid[3], out.mid[4] = r * 0.88, g * 0.94, b, a
   out.top[1], out.top[2], out.top[3], out.top[4] = math.min(r * 1.16, 1), math.min(g * 1.16, 1), math.min(b * 1.18, 1), a
-  out.brightness = 0.86 + wave * 0.18
+  out.brightness = 0.9 + band * 0.1
   return out
 end
 
@@ -402,16 +412,16 @@ local function drawTower(w, h)
     local tremor = math.sin(elapsed * 0.8 + cube.seed) * sound * baseSize * 0.025
     local grow = temperature * 0.08 + pulse * sound * 0.05
     local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
-    local flow = math.sin(elapsed * 0.7 + cube.z * 0.37 + cube.x * 0.21) * 0.5 + 0.5
-    local palette = getColorCyclePalette(drawZ, cube.seed, paletteScratch)
-    local brightness = kindBoost * palette.brightness * (0.86 + cube.z * 0.01 + temperature * 0.025 + flow * (0.025 + flowAmount * 0.02))
+    local flow = math.sin(elapsed * 0.48 + drawZ * 0.16 + (drawX - drawY) * 0.08) * 0.5 + 0.5
+    local palette = getColorCyclePalette(drawX, drawY, drawZ, paletteScratch)
+    local brightness = kindBoost * palette.brightness * (0.9 + cube.z * 0.006 + temperature * 0.02 + flow * (0.012 + flowAmount * 0.012))
     local alpha = 0.82 + humidity * 0.08
     local accent
 
     if cube.parentZ % 12 == 0 and cube.kind ~= "base" and cube.subIndex % 5 == 0 then
-      accent = {0.92, 0.08, 0.18, 0.18 + temperature * 0.08}
+      accent = {0.92, 0.08, 0.18, 0.07 + temperature * 0.03}
     elseif math.floor((cube.x + cube.y + cube.z) * 3) % 17 == 0 then
-      accent = {0.0, 0.72, 0.78, 0.14 + humidity * 0.08}
+      accent = {0.0, 0.72, 0.78, 0.05 + humidity * 0.025}
     end
 
     local px, py = isoProject(drawX, drawY, drawZ * (1 + grow * 0.035), cubeW, cubeH)
