@@ -16,6 +16,7 @@ love .
 
 Controls:
 
+- mouse click: cycle building -> cube flow -> Guiyang text -> cube flow -> building
 - `space`: pause or resume simulated sensor input
 - `r`: reseed the simulated input
 - `f`: toggle fullscreen

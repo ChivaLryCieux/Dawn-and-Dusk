@@ -32,30 +32,34 @@ local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent)
   end
 end
 
-function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, spinPhase)
+function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase)
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
-  local useFlowSort = flowAmount > 0.002
+  local useTransformSort = flowAmount > 0.002 or textAmount > 0.002
   local renderCount = #tower
 
-  if useFlowSort then
+  if useTransformSort then
     for i = 1, renderCount do
       local cube = tower[i]
       local pull = util.smoothstep((flowAmount - cube.delay) / 0.58)
+      local textPull = util.smoothstep((textAmount - cube.textDelay) / 0.5)
       local orbit = -spinPhase * 1.1 + cube.orbitPhase
       local targetX = math.cos(orbit) * cube.orbitRadius
       local targetY = math.sin(orbit) * cube.orbitRadius + cube.ringBias
       local targetZ = cube.z + math.sin(orbit * 1.4 + cube.seed) * 1.1
+      local flowX = util.lerp(cube.x, targetX, pull)
+      local flowY = util.lerp(cube.y, targetY, pull)
+      local flowZ = util.lerp(cube.z, targetZ, pull)
       local item = drawList[i]
       if not item then
         item = {}
         drawList[i] = item
       end
       item.cube = cube
-      item.x = util.lerp(cube.x, targetX, pull)
-      item.y = util.lerp(cube.y, targetY, pull)
-      item.z = util.lerp(cube.z, targetZ, pull)
+      item.x = util.lerp(flowX, cube.textX, textPull)
+      item.y = util.lerp(flowY, cube.textY, textPull)
+      item.z = util.lerp(flowZ, cube.textZ, textPull)
     end
     for i = renderCount + 1, #drawList do
       drawList[i] = nil
@@ -66,17 +70,18 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
   end
 
   for i = 1, renderCount do
-    local item = useFlowSort and drawList[i] or tower[i]
+    local item = useTransformSort and drawList[i] or tower[i]
     local cube = item.cube or item
-    local drawX = useFlowSort and item.x or cube.x
-    local drawY = useFlowSort and item.y or cube.y
-    local drawZ = useFlowSort and item.z or cube.z
+    local drawX = useTransformSort and item.x or cube.x
+    local drawY = useTransformSort and item.y or cube.y
+    local drawZ = useTransformSort and item.z or cube.z
     local tremor = math.sin(elapsed * 0.8 + cube.seed) * sensors.sound * baseSize * 0.025
     local grow = sensors.temperature * 0.08 + pulse * sensors.sound * 0.05
     local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
     local flow = math.sin(elapsed * 0.48 + drawZ * 0.16 + (drawX - drawY) * 0.08) * 0.5 + 0.5
     local colors = palette.get(elapsed, drawX, drawY, drawZ, paletteScratch)
-    local brightness = kindBoost * colors.brightness * (0.9 + cube.z * 0.006 + sensors.temperature * 0.02 + flow * (0.012 + flowAmount * 0.012))
+    local textBoost = textAmount * 0.18
+    local brightness = kindBoost * colors.brightness * (0.9 + cube.z * 0.006 + sensors.temperature * 0.02 + textBoost + flow * (0.012 + flowAmount * 0.012))
     local accent
 
     if cube.parentZ % 12 == 0 and cube.kind ~= "base" and cube.subIndex % 5 == 0 then
@@ -89,7 +94,7 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
     drawCube(
       originX + px + tremor,
       originY + py - tremor * 0.4,
-      baseSize * cube.size * (1.08 + grow * 0.025),
+      baseSize * cube.size * (1.08 + grow * 0.025 + textAmount * 0.28),
       sensors.temperature * 0.02,
       colors,
       brightness,

@@ -69,6 +69,77 @@ local function cullInteriorVoxels()
   tower = visible
 end
 
+local function addRect(points, x0, y0, w, h)
+  for y = y0, y0 + h - 1 do
+    for x = x0, x0 + w - 1 do
+      points[#points + 1] = {x = x, y = y}
+    end
+  end
+end
+
+local function addStroke(points, x0, y0, x1, y1, thickness)
+  local steps = math.max(math.abs(x1 - x0), math.abs(y1 - y0))
+  for i = 0, steps do
+    local t = steps == 0 and 0 or i / steps
+    local x = math.floor(x0 + (x1 - x0) * t + 0.5)
+    local y = math.floor(y0 + (y1 - y0) * t + 0.5)
+    addRect(points, x, y, thickness, thickness)
+  end
+end
+
+local function buildGuiyangPoints()
+  local points = {}
+
+  addRect(points, 8, 3, 3, 11)
+  addRect(points, 4, 4, 11, 2)
+  addRect(points, 4, 4, 2, 8)
+  addRect(points, 13, 4, 2, 8)
+  addRect(points, 4, 10, 11, 2)
+  addRect(points, 1, 13, 17, 2)
+  addRect(points, 5, 16, 10, 2)
+  addRect(points, 5, 16, 2, 8)
+  addRect(points, 13, 16, 2, 8)
+  addStroke(points, 10, 20, 6, 27, 2)
+  addStroke(points, 10, 23, 15, 27, 2)
+
+  local ox = 24
+  addRect(points, ox + 0, 2, 3, 25)
+  addRect(points, ox + 2, 2, 6, 2)
+  addRect(points, ox + 6, 3, 2, 8)
+  addRect(points, ox + 2, 10, 5, 2)
+  addRect(points, ox + 5, 12, 2, 9)
+  addRect(points, ox + 2, 20, 5, 2)
+  addRect(points, ox + 9, 4, 12, 2)
+  addRect(points, ox + 9, 4, 2, 20)
+  addRect(points, ox + 19, 4, 2, 20)
+  addRect(points, ox + 9, 13, 12, 2)
+  addRect(points, ox + 9, 22, 12, 2)
+
+  return points
+end
+
+local function assignTextTargets()
+  local points = buildGuiyangPoints()
+  local cols, rows = 46, 28
+  local scaleX = 0.54
+  local scaleZ = 0.64
+  local layerDepth = 0.09
+
+  for i, cube in ipairs(tower) do
+    local point = points[((i - 1) % #points) + 1]
+    local layer = math.floor((i - 1) / #points) % 7
+    local jitterX = (love.math.noise(cube.seed, 12.1) - 0.5) * 0.06
+    local jitterZ = (love.math.noise(19.7, cube.seed) - 0.5) * 0.06
+    local x = (point.x - cols * 0.5 - 1.6) * scaleX + jitterX
+    local z = (rows - point.y) * scaleZ + 6.0 + jitterZ
+
+    cube.textX = x
+    cube.textY = -x * 0.46 + (layer - 3) * layerDepth
+    cube.textZ = z
+    cube.textDelay = love.math.noise(cube.seed, 28.4) * 0.32
+  end
+end
+
 function M.build()
   tower = {}
 
@@ -103,6 +174,7 @@ function M.build()
   table.sort(tower, function(a, b)
     return a.x + a.y + a.z * 0.08 + a.coreSortBias < b.x + b.y + b.z * 0.08 + b.coreSortBias
   end)
+  assignTextTargets()
 
   return tower
 end

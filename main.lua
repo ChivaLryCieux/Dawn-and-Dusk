@@ -13,11 +13,16 @@ local function drawScene(w, h)
   local originY = h * 0.8
   local sensorValues = sensors.get()
   local flowAmount = motion.flowAmount()
+  local textAmount = motion.textAmount()
   local spinPhase = motion.spinPhase()
 
-  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, flowAmount, false)
-  buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, spinPhase)
-  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, flowAmount, true)
+  if flowAmount > 0.01 and textAmount < 0.65 then
+    rings.draw(originX, originY, baseSize, sensorValues, spinPhase, flowAmount, false)
+  end
+  buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase)
+  if flowAmount > 0.01 and textAmount < 0.65 then
+    rings.draw(originX, originY, baseSize, sensorValues, spinPhase, flowAmount, true)
+  end
 end
 
 function love.load()
@@ -54,5 +59,5 @@ function love.keypressed(key)
 end
 
 function love.mousepressed()
-  motion.toggleFlow()
+  motion.advanceState()
 end
