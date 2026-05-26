@@ -17,6 +17,8 @@ local mouseSpeed = 0
 local spinPhase = 0
 local spinSpeed = 0.28
 local spinTargetSpeed = 0.28
+local textYaw = 0
+local textPitch = 0
 
 function M.load()
   mouseX, mouseY = love.mouse.getPosition()
@@ -44,6 +46,13 @@ function M.update(dt)
   spinTargetSpeed = 0.28 + mouseSpeed * 1.65
   spinSpeed = util.lerp(spinSpeed, spinTargetSpeed, 1 - math.exp(-dt * 4))
   spinPhase = spinPhase + spinSpeed * dt
+
+  local w, h = love.graphics.getDimensions()
+  local targetYaw = util.clamp((x / w - 0.5) * 1.25, -0.72, 0.72)
+  local targetPitch = util.clamp((0.5 - y / h) * 0.55, -0.28, 0.28)
+  local lookResponse = 1 - math.exp(-dt * 6)
+  textYaw = util.lerp(textYaw, targetYaw, lookResponse)
+  textPitch = util.lerp(textPitch, targetPitch, lookResponse)
 end
 
 function M.advanceState()
@@ -64,6 +73,10 @@ end
 
 function M.spinPhase()
   return spinPhase
+end
+
+function M.textLook()
+  return textYaw, textPitch
 end
 
 return M

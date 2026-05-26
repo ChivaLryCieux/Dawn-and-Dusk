@@ -99,8 +99,8 @@ local function buildGuiyangPoints()
   addRect(points, 5, 16, 10, 2)
   addRect(points, 5, 16, 2, 8)
   addRect(points, 13, 16, 2, 8)
-  addStroke(points, 10, 20, 6, 27, 2)
-  addStroke(points, 10, 23, 15, 27, 2)
+  addStroke(points, 9, 20, 5, 27, 2)
+  addStroke(points, 9, 23, 14, 27, 2)
 
   local ox = 24
   addRect(points, ox + 0, 2, 3, 25)
@@ -109,11 +109,11 @@ local function buildGuiyangPoints()
   addRect(points, ox + 2, 10, 5, 2)
   addRect(points, ox + 5, 12, 2, 9)
   addRect(points, ox + 2, 20, 5, 2)
-  addRect(points, ox + 9, 4, 12, 2)
+  addRect(points, ox + 9, 4, 10, 2)
   addRect(points, ox + 9, 4, 2, 20)
-  addRect(points, ox + 19, 4, 2, 20)
-  addRect(points, ox + 9, 13, 12, 2)
-  addRect(points, ox + 9, 22, 12, 2)
+  addRect(points, ox + 17, 4, 2, 20)
+  addRect(points, ox + 9, 13, 10, 2)
+  addRect(points, ox + 9, 22, 10, 2)
 
   return points
 end

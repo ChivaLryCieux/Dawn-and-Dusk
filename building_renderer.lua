@@ -32,12 +32,17 @@ local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent)
   end
 end
 
-function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase)
+function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase, textYaw, textPitch)
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
   local useTransformSort = flowAmount > 0.002 or textAmount > 0.002
   local renderCount = #tower
+  local yaw = (textYaw or 0) * util.smoothstep(textAmount)
+  local pitch = (textPitch or 0) * util.smoothstep(textAmount)
+  local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
+  local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)
+  local textCenterZ = 14.0
 
   if useTransformSort then
     for i = 1, renderCount do
@@ -51,15 +56,20 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
       local flowX = util.lerp(cube.x, targetX, pull)
       local flowY = util.lerp(cube.y, targetY, pull)
       local flowZ = util.lerp(cube.z, targetZ, pull)
+      local textX = cube.textX * cosYaw - cube.textY * sinYaw
+      local textY = cube.textX * sinYaw + cube.textY * cosYaw
+      local textZ = cube.textZ - textCenterZ
+      local pitchedY = textY * cosPitch - textZ * sinPitch
+      local pitchedZ = textY * sinPitch + textZ * cosPitch + textCenterZ
       local item = drawList[i]
       if not item then
         item = {}
         drawList[i] = item
       end
       item.cube = cube
-      item.x = util.lerp(flowX, cube.textX, textPull)
-      item.y = util.lerp(flowY, cube.textY, textPull)
-      item.z = util.lerp(flowZ, cube.textZ, textPull)
+      item.x = util.lerp(flowX, textX, textPull)
+      item.y = util.lerp(flowY, pitchedY, textPull)
+      item.z = util.lerp(flowZ, pitchedZ, textPull)
     end
     for i = renderCount + 1, #drawList do
       drawList[i] = nil
