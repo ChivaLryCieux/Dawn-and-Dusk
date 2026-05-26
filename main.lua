@@ -67,22 +67,22 @@ local function getColorCyclePalette(x, y, z, out)
   local cycle = (elapsed % (segmentDuration * 4)) / segmentDuration
   local segment = math.floor(cycle)
   local localT = smoothstep(cycle - segment)
-  local heightBand = clamp((z + 1) / 34, 0, 1)
-  local diagonal = clamp(((x - y) + 14) / 28, 0, 1)
-  local sweep = clamp(heightBand + math.sin(elapsed * 0.12) * 0.18 + diagonal * 0.08, 0, 1)
+  local tiltedAxis = x * 0.062 - y * 0.034 + z * 0.021
+  local crossFlow = x * 0.018 + y * 0.026 - z * 0.006
+  local sweep = clamp(0.48 + tiltedAxis + math.sin(elapsed * 0.12 + crossFlow) * 0.16, 0, 1)
   local band = smoothstep(sweep)
   local rybR, rybG, rybB, rybA
 
-  if band < 0.5 then
-    local t = smoothstep(band * 2)
+  if band < 0.82 then
+    local t = smoothstep(band / 0.82)
     rybR, rybG, rybB, rybA = mixComponents(0.82, 0.05, 0.08, 0.92, 1, 0.76, 0.08, 0.92, t)
   else
-    local t = smoothstep((band - 0.5) * 2)
-    rybR, rybG, rybB, rybA = mixComponents(1, 0.76, 0.08, 0.92, 0.08, 0.24, 0.95, 0.92, t)
+    local t = smoothstep((band - 0.82) / 0.18)
+    rybR, rybG, rybB, rybA = mixComponents(1, 0.76, 0.08, 0.92, 0.08, 0.2, 0.68, 0.92, t)
   end
 
-  local blueLift = smoothstep(clamp(heightBand + diagonal * 0.12, 0, 1))
-  local blueR, blueG, blueB, blueA = mixComponents(0.02, 0.36, 0.88, 0.94, 0, 0.78, 1, 0.95, blueLift)
+  local blueLift = smoothstep(clamp(0.12 + x * 0.014 - y * 0.008 + z * 0.004, 0, 1))
+  local blueR, blueG, blueB, blueA = mixComponents(0.02, 0.26, 0.52, 0.94, 0, 0.52, 0.76, 0.95, blueLift)
   local r, g, b, a
 
   if segment == 0 then
@@ -497,7 +497,7 @@ local function drawTower(w, h)
     local flow = math.sin(elapsed * 0.48 + drawZ * 0.16 + (drawX - drawY) * 0.08) * 0.5 + 0.5
     local palette = getColorCyclePalette(drawX, drawY, drawZ, paletteScratch)
     local brightness = kindBoost * palette.brightness * (0.9 + cube.z * 0.006 + temperature * 0.02 + flow * (0.012 + flowAmount * 0.012))
-    local alpha = 0.82 + humidity * 0.08
+    local alpha = 1
     local accent
 
     if cube.parentZ % 12 == 0 and cube.kind ~= "base" and cube.subIndex % 5 == 0 then
