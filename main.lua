@@ -10,7 +10,7 @@ local tower = {}
 local function drawScene(w, h)
   local baseSize = math.min(w, h) * 0.033
   local originX = w * 0.5
-  local originY = h * 0.74
+  local originY = h * 0.8
   local sensorValues = sensors.get()
   local flowAmount = motion.flowAmount()
   local spinPhase = motion.spinPhase()
