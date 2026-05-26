@@ -442,11 +442,11 @@ local function drawFunctionalRings(cx, originY, baseSize, temperature, humidity,
 end
 
 local function drawTower(w, h)
-  local baseSize = math.min(w, h) * 0.046
+  local baseSize = math.min(w, h) * 0.033
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
   local originX = w * 0.5
-  local originY = h * 0.83
+  local originY = h * 0.74
   local temperature = sensors.temperature
   local humidity = sensors.humidity
   local sound = sensors.sound
