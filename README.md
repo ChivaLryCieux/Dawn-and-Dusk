@@ -2,6 +2,11 @@
 
 LOVE2D realtime projection sketch for a Guiyang bamboo-fungus-inspired tower made from cube modules.
 
+The visual system is built from two basic geometric elements:
+
+- 2D rectangles: rotating color blocks that form the surrounding spiral bands.
+- 3D cubes: modular building units that transform between the tower, cube flow, and "Guiyang" text.
+
 Current input mode uses `love.math.noise` to simulate three sensor channels:
 
 - Temperature: red accent intensity, vertical deformation, upper ring scale
