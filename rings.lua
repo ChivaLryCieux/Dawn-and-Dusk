@@ -73,9 +73,10 @@ local function setColor(color, shade)
   )
 end
 
-local function helixPoint(cx, originY, baseSize, stream, phase, u, radiusOffset)
+local function helixPoint(cx, originY, baseSize, stream, phase, u, radiusOffset, textAmount)
   local sway = math.sin(u * math.pi * 3.0 + stream.phase) * 0.46
-  local radius = baseSize * (stream.radius + radiusOffset + sway * 0.14)
+  local textClearance = util.smoothstep(textAmount or 0) * 5.4
+  local radius = baseSize * (stream.radius + textClearance + radiusOffset + sway * 0.14)
   local angle = phase + stream.direction * (u * stream.turns * TAU)
   local z = stream.z0 + (stream.z1 - stream.z0) * u
   local x = cx + math.cos(angle) * radius
@@ -83,15 +84,15 @@ local function helixPoint(cx, originY, baseSize, stream, phase, u, radiusOffset)
   return x, y, angle
 end
 
-local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, flowAmount, front)
+local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, flowAmount, front, textAmount)
   local group = math.floor(index / 3)
   local u = ((index * 0.137 + stream.phase * 0.07 + flowAmount * 0.08) % 1)
   local span = 0.018 + (index % 5) * 0.006 + sensors.sound * 0.012
   local u0 = util.clamp(u - span * 0.5, 0, 1)
   local u1 = util.clamp(u + span * 0.5, 0, 1)
   local side = ((index % 4) - 1.5) * (0.58 + sensors.humidity * 0.4)
-  local x0, y0, a0 = helixPoint(cx, originY, baseSize, stream, phase, u0, side)
-  local x1, y1, a1 = helixPoint(cx, originY, baseSize, stream, phase, u1, side)
+  local x0, y0, a0 = helixPoint(cx, originY, baseSize, stream, phase, u0, side, textAmount)
+  local x1, y1, a1 = helixPoint(cx, originY, baseSize, stream, phase, u1, side, textAmount)
   local midAngle = (a0 + a1) * 0.5
 
   if isFrontAngle(midAngle) ~= front then
@@ -120,21 +121,21 @@ local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, f
   )
 end
 
-local function drawStream(cx, originY, baseSize, stream, sensors, spinPhase, flowAmount, front)
+local function drawStream(cx, originY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount)
   local phase = stream.phase - spinPhase * stream.speed
 
   local panelCount = 42 + math.floor(flowAmount * 22)
   for i = 1, panelCount do
-    drawPanel(cx, originY, baseSize, stream, phase, i, sensors, flowAmount, front)
+    drawPanel(cx, originY, baseSize, stream, phase, i, sensors, flowAmount, front, textAmount)
   end
 end
 
-function M.draw(cx, originY, baseSize, sensors, spinPhase, flowAmount, front)
+function M.draw(cx, originY, baseSize, sensors, spinPhase, flowAmount, front, textAmount)
   love.graphics.setBlendMode("alpha")
   local shiftedOriginY = originY + baseSize * 3.2
 
   for _, stream in ipairs(streams) do
-    drawStream(cx, shiftedOriginY, baseSize, stream, sensors, spinPhase, flowAmount, front)
+    drawStream(cx, shiftedOriginY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount)
   end
 end
 

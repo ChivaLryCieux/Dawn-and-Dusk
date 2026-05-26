@@ -42,7 +42,7 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
   local pitch = (textPitch or 0) * util.smoothstep(textAmount)
   local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
   local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)
-  local textCenterZ = 14.0
+  local textCenterZ = 15.0
 
   if useTransformSort then
     for i = 1, renderCount do

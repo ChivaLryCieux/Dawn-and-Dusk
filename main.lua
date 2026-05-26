@@ -14,16 +14,13 @@ local function drawScene(w, h)
   local sensorValues = sensors.get()
   local flowAmount = motion.flowAmount()
   local textAmount = motion.textAmount()
+  local ringAmount = math.max(flowAmount, 0.55)
   local spinPhase = motion.spinPhase()
   local textYaw, textPitch = motion.textLook()
 
-  if flowAmount > 0.01 and textAmount < 0.65 then
-    rings.draw(originX, originY, baseSize, sensorValues, spinPhase, flowAmount, false)
-  end
+  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, false, textAmount)
   buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase, textYaw, textPitch)
-  if flowAmount > 0.01 and textAmount < 0.65 then
-    rings.draw(originX, originY, baseSize, sensorValues, spinPhase, flowAmount, true)
-  end
+  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, true, textAmount)
 end
 
 function love.load()

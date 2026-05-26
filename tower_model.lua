@@ -120,21 +120,33 @@ end
 
 local function assignTextTargets()
   local points = buildGuiyangPoints()
-  local cols, rows = 46, 28
   local scaleX = 0.54
   local scaleZ = 0.64
   local layerDepth = 0.09
+  local minX, maxX = points[1].x, points[1].x
+  local minY, maxY = points[1].y, points[1].y
+
+  for _, point in ipairs(points) do
+    minX = math.min(minX, point.x)
+    maxX = math.max(maxX, point.x)
+    minY = math.min(minY, point.y)
+    maxY = math.max(maxY, point.y)
+  end
+
+  local centerX = (minX + maxX) * 0.5
+  local centerY = (minY + maxY) * 0.5
+  local centerZ = 15.0
 
   for i, cube in ipairs(tower) do
     local point = points[((i - 1) % #points) + 1]
     local layer = math.floor((i - 1) / #points) % 7
     local jitterX = (love.math.noise(cube.seed, 12.1) - 0.5) * 0.06
     local jitterZ = (love.math.noise(19.7, cube.seed) - 0.5) * 0.06
-    local x = (point.x - cols * 0.5 - 1.6) * scaleX + jitterX
-    local z = (rows - point.y) * scaleZ + 6.0 + jitterZ
+    local x = (point.x - centerX) * scaleX + jitterX
+    local z = (centerY - point.y) * scaleZ + centerZ + jitterZ
 
     cube.textX = x
-    cube.textY = -x * 0.46 + (layer - 3) * layerDepth
+    cube.textY = -x + (layer - 3) * layerDepth
     cube.textZ = z
     cube.textDelay = love.math.noise(cube.seed, 28.4) * 0.32
   end
