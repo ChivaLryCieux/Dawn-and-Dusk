@@ -3,6 +3,7 @@ local palette = require("palette")
 
 local M = {}
 
+local ISO_YAW = -math.atan(0.5)
 local drawList = {}
 local paletteScratch = {
   dark = {0, 0, 0, 1},
@@ -38,7 +39,7 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
   local useTransformSort = flowAmount > 0.002 or textAmount > 0.002
   local renderCount = #tower
-  local yaw = (textYaw or 0) * util.smoothstep(textAmount)
+  local yaw = (ISO_YAW + (textYaw or 0)) * util.smoothstep(textAmount)
   local pitch = (textPitch or 0) * util.smoothstep(textAmount)
   local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
   local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)

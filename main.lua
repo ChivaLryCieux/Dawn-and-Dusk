@@ -6,6 +6,14 @@ local buildingRenderer = require("building_renderer")
 
 local elapsed = 0
 local tower = {}
+local canvas
+local gradientShader
+
+local function ensureCanvas(w, h)
+  if not canvas or canvas:getWidth() ~= w or canvas:getHeight() ~= h then
+    canvas = love.graphics.newCanvas(w, h)
+  end
+end
 
 local function drawScene(w, h)
   local baseSize = math.min(w, h) * 0.033
@@ -18,8 +26,23 @@ local function drawScene(w, h)
   local spinPhase = motion.spinPhase()
   local textYaw, textPitch = motion.textLook()
 
+  -- Back rings (behind tower)
   rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, false, textAmount)
+
+  -- Tower → canvas with gradient shader
+  ensureCanvas(w, h)
+  love.graphics.setCanvas(canvas)
+  love.graphics.clear(0, 0, 0, 0)
   buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase, textYaw, textPitch)
+  love.graphics.setCanvas()
+
+  gradientShader:send("elapsed", elapsed)
+  gradientShader:send("screenSize", {w, h})
+  love.graphics.setShader(gradientShader)
+  love.graphics.draw(canvas, 0, 0)
+  love.graphics.setShader()
+
+  -- Front rings (in front of tower)
   rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, true, textAmount)
 end
 
@@ -28,6 +51,7 @@ function love.load()
   love.graphics.setDefaultFilter("linear", "linear")
   motion.load()
   tower = towerModel.build()
+  gradientShader = love.graphics.newShader("gradient.glsl")
 end
 
 function love.update(dt)
