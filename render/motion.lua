@@ -11,6 +11,7 @@ local spinSpeed = 0.28
 local spinTargetSpeed = 0.28
 local textYaw = 0
 local textPitch = 0
+local cameraMotion = 0
 
 function M.load()
   mouseX, mouseY = love.mouse.getPosition()
@@ -25,7 +26,7 @@ function M.update(dt)
 
   local instantSpeed = util.clamp(distance / math.max(dt, 0.001) / 2200, 0, 1)
   mouseSpeed = util.lerp(mouseSpeed, instantSpeed, 1 - math.exp(-dt * 5))
-  spinTargetSpeed = 0.28 + mouseSpeed * 1.65
+  spinTargetSpeed = 0.28 + mouseSpeed * 1.65 + cameraMotion * 2.0
   spinSpeed = util.lerp(spinSpeed, spinTargetSpeed, 1 - math.exp(-dt * 4))
   spinPhase = spinPhase + spinSpeed * dt
 
@@ -61,6 +62,10 @@ end
 
 function M.textLook()
   return textYaw, textPitch
+end
+
+function M.setCameraMotion(value)
+  cameraMotion = util.clamp(value, 0, 1)
 end
 
 return M
