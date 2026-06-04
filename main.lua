@@ -69,9 +69,11 @@ local function buildAsciiGrid(w, h)
       idx = math.min(math.max(idx, 1), densityLen)
 
       asciiChars[row][col] = ASCII_DENSITY:sub(idx, idx)
-      asciiR[row][col] = r
-      asciiG[row][col] = g
-      asciiB[row][col] = b
+      -- Brightness floor: avoid invisible dark characters
+      local minB = 0.18
+      asciiR[row][col] = math.max(r, minB)
+      asciiG[row][col] = math.max(g, minB)
+      asciiB[row][col] = math.max(b, minB)
     end
   end
 end
@@ -174,7 +176,8 @@ function love.draw()
     buildAsciiGrid(w, h)
   end
 
-  love.graphics.clear(1, 1, 1, 1)
+  local bg = 1 - asciiBlend * 0.95
+  love.graphics.clear(bg, bg, bg, 1)
   love.graphics.setBlendMode("alpha")
   drawScene(w, h)
 
