@@ -16,7 +16,7 @@ local asciiMode = false
 local asciiTimer = 0
 local asciiBlend = 0  -- 0=normal, 1=full ASCII (lerped)
 local ASCII_DENSITY = ".,:-=+*#%@"
-local ASCII_CELL = 14
+local ASCII_CELL = 20
 local asciiGridW, asciiGridH = 0, 0
 local asciiChars = {}
 local asciiR, asciiG, asciiB = {}, {}, {}

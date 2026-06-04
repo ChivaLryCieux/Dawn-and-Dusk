@@ -117,7 +117,7 @@ local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, f
     local ch, cr, cg, cb = asciiFn(midX, midY)
     if ch then
       love.graphics.setColor(cr, cg, cb, 1)
-      love.graphics.print(ch, midX - 4, midY - 7, 0, 0.8, 0.8)
+      love.graphics.print(ch, midX - 6, midY - 10, 0, 1.2, 1.2)
     end
     return
   end

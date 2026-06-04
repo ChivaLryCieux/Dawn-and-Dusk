@@ -19,7 +19,7 @@ local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent, a
     local ch, cr, cg, cb = asciiFn(cx, cy)
     if ch then
       love.graphics.setColor(1 - cr, 1 - cg, 1 - cb, 1)
-      love.graphics.print(ch, cx - 4, cy - 7, 0, 0.8, 0.8)
+      love.graphics.print(ch, cx - 6, cy - 10, 0, 1.2, 1.2)
     end
     return
   end
