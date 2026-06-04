@@ -1,0 +1,25 @@
+# Build output
+dist/
+LOVE/
+*.love
+*.exe
+
+# Python runtime (bundled for distribution, keep setup.bat)
+python/*
+!python/setup.bat
+
+# Native build artifacts
+native/mpenv/
+*.so
+*.dll
+
+# IDE / editor
+.claude/
+.agents/
+.codex/
+.vscode/
+.idea
+
+# OS
+.DS_Store
+Thumbs.db

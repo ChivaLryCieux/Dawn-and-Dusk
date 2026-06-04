@@ -91,3 +91,32 @@ love .
 ```
 
 When real sensor data is available, replace `updateSensors(dt)` in `main.lua` with serial, socket, or OSC input and keep the `sensors.temperature`, `sensors.humidity`, and `sensors.sound` fields normalized through `normalizeSensor`.
+
+## Packaging (Windows)
+
+The `LOVE/` folder contains the LÖVE 11.5 Windows runtime. To build a standalone .exe:
+
+```bash
+# Create .love archive
+zip -r blue-hours.love main.lua conf.lua lib/ models/ render/ shaders/ \
+  native/gesture_detector.py native/gesture_thread.lua native/models/
+
+# Concatenate with LÖVE runtime → standalone .exe
+cat LOVE/love.exe blue-hours.love > blue-hours.exe
+```
+
+Copy `blue-hours.exe` and all DLLs from `LOVE/` into a `dist/` folder.
+
+### Gesture Recognition on Windows
+
+The gesture system requires Python + MediaPipe. Users must run `python/setup.bat` once to install a portable Python environment into `python/3.12/`. The game auto-detects this bundled Python at runtime.
+
+```
+dist/
+├── blue-hours.exe
+├── *.dll
+└── python/
+    └── setup.bat          ← run once to install
+```
+
+The bundled Python approach adds ~200MB but requires no system-level installation.

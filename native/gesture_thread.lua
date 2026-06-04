@@ -1,16 +1,28 @@
 -- gesture_thread.lua — runs in LÖVE thread, launches Python
 local src = ...  -- passed as argument from main thread
 
--- Try venv python first, then system
-local python = src .. "/native/mpenv/bin/python3"
-local f = io.open(python, "r")
+-- Find Python: bundled (Windows) → venv (Linux) → system
+local python
+local script = src .. "/native/gesture_detector.py"
+
+-- Check for bundled Windows Python
+local bundled = src .. "/python/3.12/python.exe"
+local f = io.open(bundled, "r")
 if f then
     f:close()
+    python = '"' .. bundled .. '"'
 else
-    python = "python3.12"
+    -- Check for Linux venv
+    local venv = src .. "/native/mpenv/bin/python3"
+    f = io.open(venv, "r")
+    if f then
+        f:close()
+        python = venv
+    else
+        python = "python3.12"
+    end
 end
 
-local script = src .. "/native/gesture_detector.py"
 local cmd = python .. " " .. script .. " 2>&1"
 
 local pipe = io.popen(cmd, "r")
