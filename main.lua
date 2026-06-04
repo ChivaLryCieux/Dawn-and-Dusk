@@ -76,21 +76,6 @@ function love.draw()
   love.graphics.setBlendMode("alpha")
   drawScene(w, h)
 
-  -- Debug info (top-right)
-  local dbg = {
-    "state: " .. motion.stateName(),
-    "gesture: " .. gesture.getGestureName(),
-    "fist: " .. tostring(gesture.isFist()),
-    "motion: " .. string.format("%.2f", gesture.getMotion()),
-    "hands: " .. tostring(gesture.hasHands()),
-    "thread: " .. (gesture.isThreadAlive() and "alive" or "dead"),
-  }
-  love.graphics.setColor(1, 0.4, 0.1, 1)
-  for i, line in ipairs(dbg) do
-    love.graphics.print(line, w - 220, 10 + (i - 1) * 18)
-  end
-  love.graphics.setColor(1, 1, 1, 1)
-
   -- Camera feed + hand landmarks (bottom-right)
   local camImg = gesture.getImage()
   if camImg then
