@@ -34,12 +34,30 @@ The system uses MediaPipe GestureRecognizer via a Python subprocess to perform r
 ### Architecture
 
 ```
-Python (OpenCV + MediaPipe)
-  ├── /tmp/blue_hours_hand.txt   gesture + motion + hand landmarks
-  └── /tmp/blue_hours_frame.bin  raw RGBA camera frame
-         ↓
-LÖVE (LuaJIT FFI) reads and renders
+LÖVE main thread
+  └─ love.thread → gesture_thread.lua
+       └─ io.popen("python3 gesture_detector.py")
+            └─ Python process (long-running)
+                 ├── /tmp/blue_hours_hand.txt   gesture + motion + landmarks
+                 └── /tmp/blue_hours_frame.bin  raw RGBA camera frame
+                        ↓
+                 LÖVE reads each frame via io.open + FFI
 ```
+
+### Lua-Python Communication
+
+Lua and Python communicate through **file IPC** — no sockets, no pipes, no shared memory.
+
+**Why files:** `io.popen:read("*l")` would block the Lua thread. File-based polling is non-blocking and dead simple.
+
+**Protocol:**
+
+- `hand.txt` — plain text, 3+ lines: fist flag (`0`/`1`), gesture name, motion value, then one line per hand landmark (`index x y z`)
+- `frame.bin` — binary: 12-byte header (`w:u32 h:u32 stride:u32`) followed by raw RGBA pixels
+
+Python writes both files atomically via `os.replace(tmp, final)` — Lua never reads a half-written file.
+
+**Lua side:** `gesture.update()` calls `io.open` to read the text file and parses it line by line. For the camera frame, it reads the binary file and uses `ffi.copy` to write pixels directly into a LÖVE `ImageData` pointer — zero conversion overhead, straight to GPU via `image:replacePixels()`.
 
 ### Supported Gestures
 
@@ -58,16 +76,10 @@ Hand movement speed is computed via frame differencing (grayscale, downsampled t
 ### Setup
 
 ```bash
-# Install OpenCV (C++ wrapper for camera + motion)
-sudo apt install libopencv-dev
-
-# Build the C++ wrapper
-cd native && ./build.sh
-
-# Install MediaPipe (Python venv)
+# Create Python venv and install MediaPipe + OpenCV
 cd native && python3.12 -m venv mpenv && mpenv/bin/pip install mediapipe
 
-# Download gesture model
+# Download gesture recognition model
 wget -O native/models/gesture_recognizer.task \
   https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task
 ```
