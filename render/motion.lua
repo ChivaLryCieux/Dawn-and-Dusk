@@ -68,4 +68,8 @@ function M.setCameraMotion(value)
   cameraMotion = util.clamp(value, 0, 1)
 end
 
+function M.stateName()
+  return sm.stateName()
+end
+
 return M
