@@ -90,6 +90,7 @@ function M.getLandmarks() return landmarks end
 function M.getGestureName() return gestureName end
 function M.getMotion() return motionValue end
 function M.getImage() return cameraImage end
+function M.getImageData() return cameraImageData end
 function M.getDimensions() return frameW, frameH end
 function M.isThreadAlive() return thread ~= nil and thread:isRunning() end
 

@@ -1,3 +1,4 @@
+local ffi = require("ffi")
 local sensors = require("lib.sensor_sim")
 local motion = require("render.motion")
 local towerModel = require("models.tower_model")
@@ -10,10 +11,78 @@ local tower = {}
 local canvas
 local gradientShader
 
+-- ASCII mode state
+local asciiMode = false
+local asciiTimer = 0
+local ASCII_DENSITY = ".,:-=+*#%@"
+local ASCII_CELL = 14
+local asciiGridW, asciiGridH = 0, 0
+local asciiChars = {}
+local asciiR, asciiG, asciiB = {}, {}, {}
+
 local function ensureCanvas(w, h)
   if not canvas or canvas:getWidth() ~= w or canvas:getHeight() ~= h then
     canvas = love.graphics.newCanvas(w, h)
   end
+end
+
+-- Pre-compute ASCII grid from camera image
+local function buildAsciiGrid(w, h)
+  local imgData = gesture.getImageData()
+  if not imgData then return end
+  local cw, ch = gesture.getDimensions()
+  if cw == 0 or ch == 0 then return end
+
+  local gw = math.ceil(w / ASCII_CELL)
+  local gh = math.ceil(h / ASCII_CELL)
+
+  if gw ~= asciiGridW or gh ~= asciiGridH then
+    asciiGridW, asciiGridH = gw, gh
+  end
+
+  local ptr = ffi.cast("uint8_t*", imgData:getPointer())
+  local stride = cw * 4
+  local densityLen = #ASCII_DENSITY
+
+  for gy = 0, gh - 1 do
+    local row = gy + 1
+    if not asciiChars[row] then asciiChars[row] = {} end
+    if not asciiR[row] then asciiR[row] = {} end
+    if not asciiG[row] then asciiG[row] = {} end
+    if not asciiB[row] then asciiB[row] = {} end
+
+    for gx = 0, gw - 1 do
+      local col = gx + 1
+      local sx = math.floor((gx * ASCII_CELL + ASCII_CELL * 0.5) / w * cw)
+      local sy = math.floor((gy * ASCII_CELL + ASCII_CELL * 0.5) / h * ch)
+      sx = math.min(math.max(sx, 0), cw - 1)
+      sy = math.min(math.max(sy, 0), ch - 1)
+
+      local offset = sy * stride + sx * 4
+      local r = ptr[offset] / 255
+      local g = ptr[offset + 1] / 255
+      local b = ptr[offset + 2] / 255
+
+      local gray = r * 0.299 + g * 0.587 + b * 0.114
+      local idx = math.floor(gray * (densityLen - 1)) + 1
+      idx = math.min(math.max(idx, 1), densityLen)
+
+      asciiChars[row][col] = ASCII_DENSITY:sub(idx, idx)
+      asciiR[row][col] = r
+      asciiG[row][col] = g
+      asciiB[row][col] = b
+    end
+  end
+end
+
+-- Get ASCII char + color at screen position
+local function getAsciiAt(sx, sy)
+  local gx = math.floor(sx / ASCII_CELL) + 1
+  local gy = math.floor(sy / ASCII_CELL) + 1
+  if gx < 1 or gx > asciiGridW or gy < 1 or gy > asciiGridH then
+    return nil
+  end
+  return asciiChars[gy][gx], asciiR[gy][gx], asciiG[gy][gx], asciiB[gy][gx]
 end
 
 local function drawScene(w, h)
@@ -27,12 +96,14 @@ local function drawScene(w, h)
   local spinPhase = motion.spinPhase()
   local textYaw, textPitch = motion.textLook()
 
-  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, false, textAmount)
+  local asciiFn = asciiMode and getAsciiAt or nil
+
+  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, false, textAmount, asciiFn)
 
   ensureCanvas(w, h)
   love.graphics.setCanvas(canvas)
   love.graphics.clear(0, 0, 0, 0)
-  buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase, textYaw, textPitch)
+  buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn)
   love.graphics.setCanvas()
 
   gradientShader:send("elapsed", elapsed)
@@ -41,7 +112,7 @@ local function drawScene(w, h)
   love.graphics.draw(canvas, 0, 0)
   love.graphics.setShader()
 
-  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, true, textAmount)
+  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, true, textAmount, asciiFn)
 end
 
 function love.load()
@@ -60,18 +131,35 @@ function love.update(dt)
   sensors.update(dt, elapsed)
 
   gesture.update()
-
-  -- Camera motion drives spin speed
   motion.setCameraMotion(gesture.getMotion())
+
+  -- Victory gesture triggers ASCII mode for 5 seconds
+  if gesture.getGestureName() == "Victory" then
+    asciiMode = true
+    asciiTimer = 5.0
+  end
 
   -- Fist gesture switches state
   if gesture.fistJustClosed() then
     motion.advanceState()
   end
+
+  if asciiMode then
+    asciiTimer = asciiTimer - dt
+    if asciiTimer <= 0 then
+      asciiMode = false
+      asciiTimer = 0
+    end
+  end
 end
 
 function love.draw()
   local w, h = love.graphics.getDimensions()
+
+  if asciiMode then
+    buildAsciiGrid(w, h)
+  end
+
   love.graphics.clear(1, 1, 1, 1)
   love.graphics.setBlendMode("alpha")
   drawScene(w, h)

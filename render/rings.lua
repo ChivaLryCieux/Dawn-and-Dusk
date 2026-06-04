@@ -84,7 +84,7 @@ local function helixPoint(cx, originY, baseSize, stream, phase, u, radiusOffset,
   return x, y, angle
 end
 
-local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, flowAmount, front, textAmount)
+local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, flowAmount, front, textAmount, asciiFn)
   local group = math.floor(index / 3)
   local u = ((index * 0.137 + stream.phase * 0.07 + flowAmount * 0.08) % 1)
   local span = 0.018 + (index % 5) * 0.006 + sensors.sound * 0.012
@@ -111,6 +111,17 @@ local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, f
   local color = blockColors[(group % #blockColors) + 1]
   local shade = 0.84 + math.sin(midAngle) * 0.12
 
+  if asciiFn then
+    local midX = (x0 + x1) * 0.5 + jitter
+    local midY = (y0 + y1) * 0.5
+    local ch, cr, cg, cb = asciiFn(midX, midY)
+    if ch then
+      love.graphics.setColor(cr, cg, cb, 1)
+      love.graphics.print(ch, midX - 4, midY - 7, 0, 0.8, 0.8)
+    end
+    return
+  end
+
   setColor(color, shade)
   love.graphics.polygon(
     "fill",
@@ -121,21 +132,21 @@ local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, f
   )
 end
 
-local function drawStream(cx, originY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount)
+local function drawStream(cx, originY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount, asciiFn)
   local phase = stream.phase - spinPhase * stream.speed
 
   local panelCount = 42 + math.floor(flowAmount * 22)
   for i = 1, panelCount do
-    drawPanel(cx, originY, baseSize, stream, phase, i, sensors, flowAmount, front, textAmount)
+    drawPanel(cx, originY, baseSize, stream, phase, i, sensors, flowAmount, front, textAmount, asciiFn)
   end
 end
 
-function M.draw(cx, originY, baseSize, sensors, spinPhase, flowAmount, front, textAmount)
+function M.draw(cx, originY, baseSize, sensors, spinPhase, flowAmount, front, textAmount, asciiFn)
   love.graphics.setBlendMode("alpha")
   local shiftedOriginY = originY + baseSize * 3.2
 
   for _, stream in ipairs(streams) do
-    drawStream(cx, shiftedOriginY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount)
+    drawStream(cx, shiftedOriginY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount, asciiFn)
   end
 end
 

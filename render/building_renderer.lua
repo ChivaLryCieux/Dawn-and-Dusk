@@ -12,7 +12,18 @@ local paletteScratch = {
   brightness = 1
 }
 
-local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent)
+local ASCII_DENSITY = ".,:-=+*#%@"
+
+local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent, asciiFn)
+  if asciiFn then
+    local ch, cr, cg, cb = asciiFn(cx, cy)
+    if ch then
+      love.graphics.setColor(1 - cr, 1 - cg, 1 - cb, 1)
+      love.graphics.print(ch, cx - 4, cy - 7, 0, 0.8, 0.8)
+    end
+    return
+  end
+
   local hw = size * 0.5
   local hh = size * 0.27
   local h = size * (0.58 + lift)
@@ -33,7 +44,7 @@ local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent)
   end
 end
 
-function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase, textYaw, textPitch)
+function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn)
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
@@ -114,7 +125,8 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
       colors,
       brightness,
       1,
-      accent
+      accent,
+      asciiFn
     )
   end
 end
