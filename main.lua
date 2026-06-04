@@ -1,8 +1,8 @@
-local sensors = require("sensor_sim")
-local motion = require("motion")
-local towerModel = require("tower_model")
-local rings = require("rings")
-local buildingRenderer = require("building_renderer")
+local sensors = require("lib.sensor_sim")
+local motion = require("render.motion")
+local towerModel = require("models.tower_model")
+local rings = require("render.rings")
+local buildingRenderer = require("render.building_renderer")
 
 local elapsed = 0
 local tower = {}
@@ -51,7 +51,7 @@ function love.load()
   love.graphics.setDefaultFilter("linear", "linear")
   motion.load()
   tower = towerModel.build()
-  gradientShader = love.graphics.newShader("gradient.glsl")
+  gradientShader = love.graphics.newShader("shaders/gradient.glsl")
 end
 
 function love.update(dt)

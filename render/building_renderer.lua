@@ -1,5 +1,5 @@
-local util = require("util")
-local palette = require("palette")
+local util = require("lib.util")
+local palette = require("models.palette")
 
 local M = {}
 

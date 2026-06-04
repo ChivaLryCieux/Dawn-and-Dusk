@@ -1,5 +1,5 @@
-local util = require("util")
-local sm = require("state_machine")
+local util = require("lib.util")
+local sm = require("lib.state_machine")
 
 local M = {}
 
