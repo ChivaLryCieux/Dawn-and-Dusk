@@ -57,9 +57,13 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
       local flowX = util.lerp(cube.x, targetX, pull)
       local flowY = util.lerp(cube.y, targetY, pull)
       local flowZ = util.lerp(cube.z, targetZ, pull)
-      local textX = cube.textX * cosYaw - cube.textY * sinYaw
-      local textY = cube.textX * sinYaw + cube.textY * cosYaw
-      local textZ = cube.textZ - textCenterZ
+      -- Breathing: cubes pulse in X and Z (perpendicular to text plane normal Y)
+      local breathPhase = elapsed * 3.14 + cube.seed * 6.28
+      local breathDX = (math.sin(breathPhase * 0.8 + 2.1) * 0.05 + math.sin(breathPhase * 0.5 + 0.7) * 0.03) * textPull
+      local breathDZ = (math.sin(breathPhase) * 0.06 + math.sin(breathPhase * 0.6 + 1.3) * 0.04) * textPull
+      local textX = (cube.textX + breathDX) * cosYaw - cube.textY * sinYaw
+      local textY = (cube.textX + breathDX) * sinYaw + cube.textY * cosYaw
+      local textZ = (cube.textZ - textCenterZ) + breathDZ
       local pitchedY = textY * cosPitch - textZ * sinPitch
       local pitchedZ = textY * sinPitch + textZ * cosPitch + textCenterZ
       local item = drawList[i]
