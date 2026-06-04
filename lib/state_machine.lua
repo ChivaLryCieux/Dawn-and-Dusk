@@ -20,6 +20,12 @@ function M.advance()
   currentIndex = currentIndex % #states + 1
 end
 
+function M.setState(index)
+  if index >= 1 and index <= #states then
+    currentIndex = index
+  end
+end
+
 function M.update(dt)
   local state = current()
   local flowSpeed = state.flow == 1 and 0.55 or 0.75

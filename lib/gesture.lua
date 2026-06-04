@@ -7,6 +7,8 @@ local FRAME_FILE = "/tmp/blue_hours_frame.bin"
 local thread = nil
 local lastFist = false
 local fistEdge = false
+local lastThumbUp = false
+local thumbUpEdge = false
 local landmarks = nil
 local gestureName = "none"
 local motionValue = 0
@@ -40,6 +42,10 @@ function M.update()
 
             local line2 = f:read("*l")
             gestureName = line2 or "none"
+
+            local newThumbUp = (gestureName == "Thumb_Up")
+            thumbUpEdge = (newThumbUp and not lastThumbUp)
+            lastThumbUp = newThumbUp
 
             local line3 = f:read("*l")
             motionValue = tonumber(line3) or 0
@@ -85,6 +91,7 @@ end
 
 function M.isFist() return lastFist end
 function M.fistJustClosed() return fistEdge end
+function M.thumbUpJustRaised() return thumbUpEdge end
 function M.hasHands() return landmarks ~= nil end
 function M.getLandmarks() return landmarks end
 function M.getGestureName() return gestureName end

@@ -14,8 +14,8 @@ local paletteScratch = {
 
 local ASCII_DENSITY = ".,:-=+*#%@"
 
-local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent, asciiFn)
-  if asciiFn then
+local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent, asciiFn, blend, seed)
+  if asciiFn and blend > ((seed * 1000 % 1000) / 1000) then
     local ch, cr, cg, cb = asciiFn(cx, cy)
     if ch then
       love.graphics.setColor(1 - cr, 1 - cg, 1 - cb, 1)
@@ -44,14 +44,14 @@ local function drawCube(cx, cy, size, lift, colors, brightness, alpha, accent, a
   end
 end
 
-function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn)
+function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn, blend)
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
   local pulse = 0.5 + math.sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
   local useTransformSort = flowAmount > 0.002 or textAmount > 0.002
   local renderCount = #tower
-  local yaw = (ISO_YAW + (textYaw or 0)) * util.smoothstep(textAmount)
-  local pitch = (textPitch or 0) * util.smoothstep(textAmount)
+  local yaw = ISO_YAW * util.smoothstep(textAmount)
+  local pitch = 0
   local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
   local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)
   local textCenterZ = 15.0
@@ -126,7 +126,9 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
       brightness,
       1,
       accent,
-      asciiFn
+      asciiFn,
+      blend,
+      cube.seed
     )
   end
 end

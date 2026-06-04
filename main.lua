@@ -14,6 +14,7 @@ local gradientShader
 -- ASCII mode state
 local asciiMode = false
 local asciiTimer = 0
+local asciiBlend = 0  -- 0=normal, 1=full ASCII (lerped)
 local ASCII_DENSITY = ".,:-=+*#%@"
 local ASCII_CELL = 14
 local asciiGridW, asciiGridH = 0, 0
@@ -96,14 +97,15 @@ local function drawScene(w, h)
   local spinPhase = motion.spinPhase()
   local textYaw, textPitch = motion.textLook()
 
-  local asciiFn = asciiMode and getAsciiAt or nil
+  local useAscii = asciiBlend > 0.01
+  local asciiFn = useAscii and getAsciiAt or nil
 
-  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, false, textAmount, asciiFn)
+  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, false, textAmount, asciiFn, asciiBlend)
 
   ensureCanvas(w, h)
   love.graphics.setCanvas(canvas)
   love.graphics.clear(0, 0, 0, 0)
-  buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn)
+  buildingRenderer.draw(tower, elapsed, baseSize, originX, originY, sensorValues, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn, asciiBlend)
   love.graphics.setCanvas()
 
   gradientShader:send("elapsed", elapsed)
@@ -112,7 +114,7 @@ local function drawScene(w, h)
   love.graphics.draw(canvas, 0, 0)
   love.graphics.setShader()
 
-  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, true, textAmount, asciiFn)
+  rings.draw(originX, originY, baseSize, sensorValues, spinPhase, ringAmount, true, textAmount, asciiFn, asciiBlend)
 end
 
 function love.load()
@@ -144,6 +146,11 @@ function love.update(dt)
     motion.advanceState()
   end
 
+  -- Thumbs up → switch to text (贵阳) state
+  if gesture.thumbUpJustRaised() then
+    motion.setState(2)
+  end
+
   if asciiMode then
     asciiTimer = asciiTimer - dt
     if asciiTimer <= 0 then
@@ -151,12 +158,19 @@ function love.update(dt)
       asciiTimer = 0
     end
   end
+
+  -- Smooth lerp: blend toward target
+  local target = asciiMode and 1 or 0
+  asciiBlend = asciiBlend + (target - asciiBlend) * (1 - math.exp(-dt * 4))
+  if math.abs(asciiBlend - target) < 0.002 then
+    asciiBlend = target
+  end
 end
 
 function love.draw()
   local w, h = love.graphics.getDimensions()
 
-  if asciiMode then
+  if asciiBlend > 0.01 then
     buildAsciiGrid(w, h)
   end
 

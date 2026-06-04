@@ -48,6 +48,10 @@ function M.advanceState()
   sm.advance()
 end
 
+function M.setState(index)
+  sm.setState(index)
+end
+
 function M.flowAmount()
   return sm.flowAmount()
 end
