@@ -67,6 +67,10 @@ def main():
     print("ok", flush=True)
 
     prev_gray = None
+    frame_count = 0
+    cached_gesture = "none"
+    cached_fist = False
+    cached_landmarks = None
 
     try:
         while True:
@@ -75,7 +79,9 @@ def main():
                 time.sleep(0.03)
                 continue
 
-            # Motion detection (downsampled grayscale diff)
+            frame_count += 1
+
+            # Motion detection: every frame (cheap)
             small = cv2.resize(frame, (160, 120), interpolation=cv2.INTER_AREA)
             gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
             motion_val = 0.0
@@ -85,26 +91,27 @@ def main():
                 motion_val = min(raw * 8.0, 1.0)
             prev_gray = gray
 
-            # Gesture recognition
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-            result = recognizer.recognize(mp_image)
+            # Gesture recognition: every 2nd frame (expensive)
+            if frame_count % 2 == 0:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                result = recognizer.recognize(mp_image)
 
-            landmarks = None
-            fist = False
-            gesture_name = "none"
+                if result.gestures and result.hand_landmarks:
+                    gesture = result.gestures[0][0]
+                    cached_gesture = gesture.category_name
+                    cached_fist = (cached_gesture == "Closed_Fist") or is_fist(
+                        [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in result.hand_landmarks[0]])
+                    cached_landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z}
+                                        for lm in result.hand_landmarks[0]]
+                else:
+                    cached_gesture = "none"
+                    cached_fist = False
+                    cached_landmarks = None
 
-            if result.gestures and result.hand_landmarks:
-                gesture = result.gestures[0][0]
-                gesture_name = gesture.category_name
-                fist = (gesture_name == "Closed_Fist") or is_fist(
-                    [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in result.hand_landmarks[0]])
-                landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z}
-                             for lm in result.hand_landmarks[0]]
+            write_result(cached_fist, cached_gesture, motion_val, cached_landmarks)
 
-            write_result(fist, gesture_name, motion_val, landmarks)
-
-            # Write camera frame as raw RGBA
+            # Write camera frame: every frame
             rgba = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
             write_frame(rgba)
 
