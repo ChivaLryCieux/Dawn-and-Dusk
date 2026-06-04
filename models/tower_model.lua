@@ -87,6 +87,17 @@ local function addStroke(points, x0, y0, x1, y1, thickness)
   end
 end
 
+local function addCompressedRect(points, x0, y0, w, h, centerX, scaleX, offsetX)
+  for y = y0, y0 + h - 1 do
+    for x = x0, x0 + w - 1 do
+      points[#points + 1] = {
+        x = centerX + (x - centerX) * scaleX + (offsetX or 0),
+        y = y
+      }
+    end
+  end
+end
+
 local function buildGuiyangPoints()
   local points = {}
 
@@ -109,11 +120,14 @@ local function buildGuiyangPoints()
   addRect(points, ox + 2, 10, 5, 2)
   addRect(points, ox + 5, 12, 2, 9)
   addRect(points, ox + 2, 20, 5, 2)
-  addRect(points, ox + 9, 4, 10, 2)
-  addRect(points, ox + 9, 4, 2, 20)
-  addRect(points, ox + 17, 4, 2, 20)
-  addRect(points, ox + 9, 13, 10, 2)
-  addRect(points, ox + 9, 22, 10, 2)
+  local sunCenterX = ox + 13.5
+  local sunScaleX = 0.8
+  local sunOffsetX = -1.5
+  addCompressedRect(points, ox + 9, 4, 10, 2, sunCenterX, sunScaleX, sunOffsetX)
+  addCompressedRect(points, ox + 9, 4, 2, 20, sunCenterX, sunScaleX, sunOffsetX)
+  addCompressedRect(points, ox + 17, 4, 2, 20, sunCenterX, sunScaleX, sunOffsetX)
+  addCompressedRect(points, ox + 9, 13, 10, 2, sunCenterX, sunScaleX, sunOffsetX)
+  addCompressedRect(points, ox + 9, 22, 10, 2, sunCenterX, sunScaleX, sunOffsetX)
 
   return points
 end
