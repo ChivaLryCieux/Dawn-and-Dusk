@@ -37,8 +37,8 @@ foreach ($f in $topFiles) {
     Copy-Item $f $staging
 }
 
-# Copy source folders
-$folders = @('lib', 'models', 'render', 'shaders')
+# Copy source folders (Lua code lives under src-lua/)
+$folders = @('src-lua')
 foreach ($f in $folders) {
     Copy-Item -Recurse $f (Join-Path $staging $f)
 }

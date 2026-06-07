@@ -1,6 +1,7 @@
 local ffi = require("ffi")
 local math_ceil, math_floor, math_min, math_max = math.ceil, math.floor, math.min, math.max
 local math_abs, math_exp, math_sin = math.abs, math.exp, math.sin
+love.filesystem.setRequirePath("?.lua;?/init.lua;src-lua/?.lua;src-lua/?/init.lua")
 local sensors = require("lib.sensor_sim")
 local motion = require("render.motion")
 local towerModel = require("models.tower_model")
@@ -136,7 +137,7 @@ function love.load()
 
   motion.load()
   tower = towerModel.build()
-  gradientShader = love.graphics.newShader("shaders/gradient.glsl")
+  gradientShader = love.graphics.newShader("src-lua/shaders/gradient.glsl")
   gesture.start()
 end
 
