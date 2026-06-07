@@ -1,26 +1,37 @@
 -- gesture_thread.lua — runs in LÖVE thread, launches Python
 local src = ...  -- passed as argument from main thread
 
--- Find Python: bundled (Windows) → venv (Linux) → system
-local python
 local script = src .. "/native/gesture_detector.py"
+local python
 
--- Check for bundled Windows Python
-local bundled = src .. "/python/3.12/python.exe"
-local f = io.open(bundled, "r")
-if f then
-    f:close()
-    python = '"' .. bundled .. '"'
+-- Detect OS: Windows uses backslashes in paths and different venv layout
+local isWindows = package.config:sub(1, 1) == "\\"
+
+-- 1. Try project-local venv
+local venvPaths
+if isWindows then
+    venvPaths = {
+        src .. "/native/mpenv/Scripts/python.exe",
+        src .. "\\native\\mpenv\\Scripts\\python.exe",
+    }
 else
-    -- Check for Linux venv
-    local venv = src .. "/native/mpenv/bin/python3"
-    f = io.open(venv, "r")
+    venvPaths = {
+        src .. "/native/mpenv/bin/python3",
+    }
+end
+
+for _, path in ipairs(venvPaths) do
+    local f = io.open(path, "r")
     if f then
         f:close()
-        python = venv
-    else
-        python = "python3.12"
+        python = '"' .. path .. '"'
+        break
     end
+end
+
+-- 2. Fallback to system python
+if not python then
+    python = isWindows and "python" or "python3.12"
 end
 
 local cmd = python .. " " .. script .. " 2>&1"

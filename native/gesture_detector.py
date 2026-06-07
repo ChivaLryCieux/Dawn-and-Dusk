@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Hand gesture + motion + camera detector using MediaPipe GestureRecognizer."""
-import sys, os, time, struct
+import sys, os, time, struct, tempfile
 import cv2
 import numpy as np
 import mediapipe as mp
 from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.vision import RunningMode
 
-SHARED_FILE = "/tmp/blue_hours_hand.txt"
-FRAME_FILE = "/tmp/blue_hours_frame.bin"
+TMP_DIR = tempfile.gettempdir()
+SHARED_FILE = os.path.join(TMP_DIR, "blue_hours_hand.txt")
+FRAME_FILE = os.path.join(TMP_DIR, "blue_hours_frame.bin")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "gesture_recognizer.task")
 
 def is_fist(lm):

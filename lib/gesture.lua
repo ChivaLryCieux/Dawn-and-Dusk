@@ -2,8 +2,9 @@
 local ffi = require("ffi")
 local M = {}
 
-local SHARED_FILE = "/tmp/blue_hours_hand.txt"
-local FRAME_FILE = "/tmp/blue_hours_frame.bin"
+local TMP_DIR = os.getenv("TMPDIR") or os.getenv("TEMP") or os.getenv("TMP") or "/tmp"
+local SHARED_FILE = TMP_DIR .. "/blue_hours_hand.txt"
+local FRAME_FILE = TMP_DIR .. "/blue_hours_frame.bin"
 local thread = nil
 local lastFist = false
 local fistEdge = false
@@ -26,8 +27,14 @@ function M.start()
 end
 
 function M.stop()
-    os.execute("pkill -f gesture_detector.py 2>/dev/null")
-    os.execute("rm -f " .. SHARED_FILE .. " " .. FRAME_FILE)
+    local isWindows = package.config:sub(1, 1) == "\\"
+    if isWindows then
+        os.execute('taskkill /F /FI "IMAGENAME eq python*" /T >nul 2>&1')
+        os.execute('del /Q "' .. SHARED_FILE .. '" "' .. FRAME_FILE .. '" >nul 2>&1')
+    else
+        os.execute("pkill -f gesture_detector.py 2>/dev/null")
+        os.execute("rm -f " .. SHARED_FILE .. " " .. FRAME_FILE)
+    end
 end
 
 function M.update()
