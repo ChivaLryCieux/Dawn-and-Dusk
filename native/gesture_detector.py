@@ -127,8 +127,12 @@ def _open_camera():
         except Exception as e:
             print(f"  try idx={idx} backend={backend}: exception: {e}", flush=True)
             continue
-    print("  all camera attempts failed — check Windows camera privacy settings",
-          flush=True)
+    if sys.platform.startswith("win"):
+        print("  all camera attempts failed — check Windows camera privacy settings",
+              flush=True)
+    else:
+        print("  all camera attempts failed — check /dev/video0 permissions or install v4l2",
+              flush=True)
     return None
 
 
