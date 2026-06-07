@@ -1,6 +1,8 @@
 -- gesture_thread.lua — runs in LÖVE thread, launches Python detector subprocess.
--- Diagnostics are written to blue_hours_diag.txt so the main thread can show
--- them on screen even if the LOVE console is hidden.
+-- Python writes all diagnostics / data to files (blue_hours_*.txt/.bin) so we
+-- do NOT need to pipe its stdout back to Lua.  On Windows we use CreateProcessW
+-- with CREATE_NO_WINDOW to avoid spawning a visible cmd.exe / console window.
+-- On Linux io.popen is fine because it doesn't create visible windows.
 
 local src = ...  -- passed as argument from main thread
 
@@ -8,27 +10,18 @@ local src = ...  -- passed as argument from main thread
 local isWindows = package.config:sub(1, 1) == "\\"
 local sep = isWindows and "\\" or "/"
 
--- Cross-platform temp dir (same one Python uses)
+-- Cross-platform temp dir
 local tmpDir = os.getenv("TMPDIR") or os.getenv("TEMP") or os.getenv("TMP") or (isWindows and "C:\\Windows\\Temp" or "/tmp")
 local DIAG_FILE = tmpDir .. sep .. "blue_hours_diag.txt"
 
--- Strip non-ASCII bytes from strings (e.g. python subprocess output on
--- Windows with a non-UTF-8 code page) to avoid "Invalid UTF-8" errors
--- when the main thread reads this file and passes text to LOVE.
-local function clean(s)
-    if not s then return s end
-    return (tostring(s):gsub("[\128-\255]", "?"))
-end
-
--- -- -- Diagnostic writer (ring buffer: only last MAX_DIAG_LINES so we
--- don't grow memory unbounded while python runs the main loop) -- -- --
+-- Ring-buffer diagnostic writer (writes to a file, no pipe needed)
 local MAX_DIAG_LINES = 40
 local diagLines = {}
 local function d(...)
     local args = {...}
     local parts = {}
     for i = 1, select("#", ...) do
-        parts[i] = clean(args[i])
+        parts[i] = tostring(args[i])
     end
     local line = table.concat(parts, " ")
     if #diagLines >= MAX_DIAG_LINES then
@@ -40,9 +33,9 @@ local function flushDiag()
     local f = io.open(DIAG_FILE, "w")
     if not f then return end
     for _, ln in ipairs(diagLines) do
-        f:write(ln, "\n")
+        f.write(f, ln, "\n")
     end
-    f:close()
+    f.close(f)
 end
 
 d("=== gesture_thread start ===")
@@ -51,31 +44,48 @@ d("src:", tostring(src))
 flushDiag()
 
 -- Build script path
-local script
-if isWindows then
-    script = src .. "\\native\\gesture_detector.py"
-else
-    script = src .. "/native/gesture_detector.py"
-end
+local script = isWindows and (src .. "\\native\\gesture_detector.py") or (src .. "/native/gesture_detector.py")
 
 local function fileExists(path)
     local f = io.open(path, "rb")
-    if f then f:close(); return true end
+    if f then f.close(f); return true end
     return false
 end
 
--- 1. Try project-local venv first
-local python
+-- ---------------------------------------------------------------------------
+-- 1) Find the Python interpreter.  On Windows we prefer pythonw.exe
+--    (GUI-subsystem Python, no console) because it doesn't need a console
+--    and won't accidentally create a visible window.  We fall back to
+--    python.exe if pythonw isn't found (e.g. Linux venv with only python3).
+-- ---------------------------------------------------------------------------
+local python = nil
 if isWindows then
     local candidates = {
+        src .. "\\native\\mpenv\\Scripts\\pythonw.exe",
+        src .. "/native/mpenv/Scripts/pythonw.exe",
         src .. "\\native\\mpenv\\Scripts\\python.exe",
         src .. "/native/mpenv/Scripts/python.exe",
     }
     for _, p in ipairs(candidates) do
         d("try_venv:", p, "->", fileExists(p) and "OK" or "missing")
         if fileExists(p) then
-            python = '"' .. p .. '"'
+            python = p
             break
+        end
+    end
+    -- Fall back to system pythonw / python
+    if not python then
+        for _, c in ipairs({"pythonw", "python"}) do
+            local probe = io.popen("where " .. c .. " 2>nul", "r")
+            if probe then
+                local out = probe.read(probe, "*l")
+                probe.close(probe)
+                if out and out ~= "" then
+                    python = out
+                    d("system python found:", out)
+                    break
+                end
+            end
         end
     end
 else
@@ -86,30 +96,21 @@ else
     for _, p in ipairs(candidates) do
         d("try_venv:", p, "->", fileExists(p) and "OK" or "missing")
         if fileExists(p) then
-            python = '"' .. p .. '"'
+            python = p
             break
         end
     end
-end
-
--- 2. Fallback to system python / python3
-if not python then
-    local candidates = isWindows
-        and {"python", "py -3", "python3"}
-        or  {"python3", "python3.12", "python"}
-
-    for _, c in ipairs(candidates) do
-        d("try_system:", c)
-        local probe = io.popen(c .. (isWindows and " --version 2>&1" or " --version 2>&1"))
-        if probe then
-            local out = probe:read("*l")
-            local ok2, reason2, code2 = probe:close()
-            if ok2 and out then
-                python = c
-                d("  system python found:", out)
-                break
-            else
-                d("  -> failed (code=" .. tostring(code2) .. ")")
+    if not python then
+        for _, c in ipairs({"python3", "python3.12", "python"}) do
+            local probe = io.popen(c .. " --version 2>&1", "r")
+            if probe then
+                local out = probe.read(probe, "*l")
+                probe.close(probe)
+                if out then
+                    python = c
+                    d("system python found:", out)
+                    break
+                end
             end
         end
     end
@@ -125,41 +126,136 @@ end
 d("script_path:", script, "exists=", fileExists(script) and "yes" or "NO")
 flushDiag()
 
--- Build final command — force UTF-8 output and unbuffered I/O so Lua can
--- reliably read lines even on non-ASCII Windows locales.  On Windows we
--- deliberately do NOT use "cmd /c" because io.popen on Windows already wraps
--- with cmd.exe internally; double-wrapping breaks stderr redirection and
--- quoting.
-local cmd
+-- ---------------------------------------------------------------------------
+-- 2) Launch the Python subprocess.
+--    Windows: use FFI CreateProcessW(CREATE_NO_WINDOW) -> zero visible windows
+--    Linux:   use io.popen to launch (no visible windows on Linux)
+-- ---------------------------------------------------------------------------
+local pythonExited = false
 if isWindows then
-    cmd = 'set PYTHONIOENCODING=utf-8 & set PYTHONUNBUFFERED=1 & ' .. python .. ' -u "' .. script .. '" 2>&1'
-else
-    cmd = 'PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 ' .. python .. ' -u "' .. script .. '" 2>&1'
-end
+    -- ------- Windows: CreateProcessW with CREATE_NO_WINDOW -------
+    local ffi = require("ffi")
+    ffi.cdef[[
+        typedef int BOOL;
+        typedef unsigned long DWORD;
+        typedef void *HANDLE;
+        typedef struct _PROCESS_INFORMATION {
+            HANDLE hProcess;
+            HANDLE hThread;
+            DWORD dwProcessId;
+            DWORD dwThreadId;
+        } PROCESS_INFORMATION;
+        typedef struct _STARTUPINFOW {
+            DWORD cb;
+            wchar_t *lpReserved;
+            wchar_t *lpDesktop;
+            wchar_t *lpTitle;
+            DWORD dwX;
+            DWORD dwY;
+            DWORD dwXSize;
+            DWORD dwYSize;
+            DWORD dwXCountChars;
+            DWORD dwYCountChars;
+            DWORD dwFillAttribute;
+            DWORD dwFlags;
+            unsigned short wShowWindow;
+            unsigned short cbReserved2;
+            unsigned short *lpReserved2;
+            HANDLE hStdInput;
+            HANDLE hStdOutput;
+            HANDLE hStdError;
+        } STARTUPINFOW;
+        BOOL CreateProcessW(
+            const wchar_t *lpApplicationName,
+            wchar_t *lpCommandLine,
+            void *lpProcessAttributes,
+            void *lpThreadAttributes,
+            BOOL bInheritHandles,
+            DWORD dwCreationFlags,
+            void *lpEnvironment,
+            const wchar_t *lpCurrentDirectory,
+            STARTUPINFOW *lpStartupInfo,
+            PROCESS_INFORMATION *lpProcessInformation
+        );
+        DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds);
+        BOOL GetExitCodeProcess(HANDLE hProcess, DWORD *lpExitCode);
+        BOOL CloseHandle(HANDLE hObject);
+    ]]
 
-d("launch_cmd:", cmd)
-flushDiag()
+    -- Build command line: "pythonw.exe" -u "script.py"
+    -- Need to convert to wide-character string for CreateProcessW
+    local function toWchar(s)
+        local n = #s + 1
+        local w = ffi.new("wchar_t[?]", n)
+        for i = 1, #s do
+            local b = s:byte(i)
+            w[i - 1] = b
+        end
+        w[#s] = 0
+        return w
+    end
 
-local pipe = io.popen(cmd, "r")
-if not pipe then
-    d("FATAL: io.popen() returned nil (command failed to launch)")
+    local cmdLine = '"' .. python .. '" -u "' .. script .. '"'
+    d("launch_cmd:", cmdLine)
+    d("flags: CREATE_NO_WINDOW")
     flushDiag()
-    return
+
+    local CREATE_NO_WINDOW = 0x08000000
+    local INFINITE = 0xFFFFFFFF
+
+    local si = ffi.new("STARTUPINFOW")
+    si.cb = ffi.sizeof("STARTUPINFOW")
+    local pi = ffi.new("PROCESS_INFORMATION")
+
+    local cmdW = toWchar(cmdLine)
+    local okFFI = ffi.C.CreateProcessW(
+        nil, cmdW, nil, nil, 0, CREATE_NO_WINDOW, nil, nil, si, pi
+    )
+
+    if okFFI == 0 then
+        d("FATAL: CreateProcessW failed (could not launch python)")
+        flushDiag()
+        return
+    end
+
+    d("python launched, pid=" .. tostring(tonumber(pi.dwProcessId)))
+    d("process running (thread will sleep and check status)")
+    flushDiag()
+
+    -- Wait for process to exit (blocks this thread until Python ends)
+    ffi.C.WaitForSingleObject(pi.hProcess, INFINITE)
+    pythonExited = true
+    d("=== python exited ===")
+
+    -- Cleanup handles
+    ffi.C.CloseHandle(pi.hProcess)
+    ffi.C.CloseHandle(pi.hThread)
+    flushDiag()
+else
+    -- ------- Linux: io.popen (no visible windows on Linux) -------
+    local cmd = python .. ' -u "' .. script .. '" 2>&1'
+    d("launch_cmd:", cmd)
+    flushDiag()
+
+    local pipe = io.popen(cmd, "r")
+    if not pipe then
+        d("FATAL: io.popen returned nil")
+        flushDiag()
+        return
+    end
+
+    d("python subprocess running")
+    flushDiag()
+
+    while true do
+        local line = pipe.read(pipe, "*l")
+        if not line then break end
+        d("[py]", line)
+        flushDiag()
+    end
+
+    pipe.close(pipe)
+    pythonExited = true
+    d("=== python exited ===")
+    flushDiag()
 end
-
-d("python subprocess running, streaming output...")
-flushDiag()
-
-local outputCount = 0
-while true do
-    local line = pipe:read("*l")
-    if not line then break end
-    d("[py]", line)
-    outputCount = outputCount + 1
-    if outputCount % 5 == 0 then flushDiag() end
-end
-
-local ok, reason, code = pipe:close()
-d("=== python exited ===")
-d("  ok=", tostring(ok), "reason=", tostring(reason), "code=", tostring(code))
-flushDiag()

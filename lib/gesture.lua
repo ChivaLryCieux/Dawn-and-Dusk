@@ -38,12 +38,36 @@ function M.start()
 end
 
 function M.stop()
+    -- Read PID from the file the Python subprocess writes on startup
+    -- and kill it by PID.  More reliable than matching window titles.
+    local pidFile = TMP_DIR .. SEP .. "blue_hours_pid.txt"
+    local pid = nil
+    local pf = io.open(pidFile, "r")
+    if pf then
+        local p = pf.read(pf, "*n")
+        pf.close(pf)
+        if p and p > 0 then pid = p end
+    end
+
     if IS_WINDOWS then
-        os.execute('taskkill /F /FI "WINDOWTITLE eq *gesture_detector*" /T >nul 2>&1')
-        os.execute('del /Q "' .. SHARED_FILE .. '" "' .. FRAME_FILE .. '" >nul 2>&1')
+        -- Kill by PID (pythonw.exe has no console window to match by title)
+        if pid then
+            os.execute('taskkill /F /PID ' .. tostring(pid) .. ' >nul 2>&1')
+        end
+        -- Also try process-name based kill as a safety net
+        os.execute('taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *gesture*" >nul 2>&1')
+        os.execute('taskkill /F /IM python.exe /FI "WINDOWTITLE eq *gesture*" >nul 2>&1')
+        -- Cleanup shared files
+        os.execute('del /Q "' .. SHARED_FILE .. '" "' .. FRAME_FILE .. '" "' ..
+                   (TMP_DIR .. SEP .. 'blue_hours_status.txt') .. '" "' ..
+                   pidFile .. '" >nul 2>&1')
     else
+        if pid then
+            os.execute("kill -9 " .. tostring(pid) .. " 2>/dev/null")
+        end
         os.execute("pkill -f gesture_detector.py 2>/dev/null")
-        os.execute("rm -f " .. SHARED_FILE .. " " .. FRAME_FILE)
+        os.execute("rm -f " .. SHARED_FILE .. " " .. FRAME_FILE .. " " ..
+                   TMP_DIR .. "/blue_hours_status.txt " .. pidFile)
     end
 end
 

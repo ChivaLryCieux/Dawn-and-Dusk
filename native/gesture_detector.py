@@ -14,6 +14,7 @@ sys.stderr.reconfigure(encoding='utf-8', errors='replace') if hasattr(sys.stderr
 TMP_DIR = tempfile.gettempdir()
 SHARED_FILE = os.path.join(TMP_DIR, "blue_hours_hand.txt")
 FRAME_FILE = os.path.join(TMP_DIR, "blue_hours_frame.bin")
+PID_FILE = os.path.join(TMP_DIR, "blue_hours_pid.txt")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "gesture_recognizer.task")
 
 def is_fist(lm):
@@ -118,25 +119,54 @@ def _open_camera():
                                     cv2.CAP_MSMF: "MSMF",
                                     cv2.CAP_V4L2: "V4L2",
                                     None: "DEFAULT"}.get(backend, "AUTO")
-                    print(f"camera ok: idx={idx} backend={backend_name} shape={test.shape}",
-                          flush=True)
+                    _write_diag(f"camera ok: idx={idx} backend={backend_name} shape={test.shape}")
                     return cap
                 cap.release()
             else:
                 cap.release()
         except Exception as e:
-            print(f"  try idx={idx} backend={backend}: exception: {e}", flush=True)
+            _write_diag(f"  try idx={idx} backend={backend}: exception: {e}")
             continue
     if sys.platform.startswith("win"):
-        print("  all camera attempts failed — check Windows camera privacy settings",
-              flush=True)
+        _write_diag("  all camera attempts failed — check Windows camera privacy settings")
     else:
-        print("  all camera attempts failed — check /dev/video0 permissions or install v4l2",
-              flush=True)
+        _write_diag("  all camera attempts failed — check /dev/video0 permissions or install v4l2")
     return None
 
 
 STATUS_FILE = os.path.join(TMP_DIR, "blue_hours_status.txt")
+DIAG_FILE = os.path.join(TMP_DIR, "blue_hours_diag.txt")
+_diag_lines = []
+_diag_max = 40
+
+def _write_diag(*args):
+    """Append a diagnostic line to blue_hours_diag.txt (ring buffer on Python
+    side — no need for a Lua pipe when pythonw.exe runs without a console)."""
+    global _diag_lines
+    try:
+        _diag_lines.append(" ".join(str(a) for a in args))
+    except Exception:
+        return
+    if len(_diag_lines) > _diag_max:
+        _diag_lines = _diag_lines[-_diag_max:]
+    try:
+        tmp = DIAG_FILE + ".tmp"
+        with open(tmp, 'w', encoding='utf-8', errors='replace') as f:
+            for ln in _diag_lines:
+                f.write(ln + "\n")
+        _atomic_replace(tmp, DIAG_FILE)
+    except Exception:
+        pass
+
+def _write_pid():
+    """Write the current process ID to blue_hours_pid.txt so the LOVE2D host
+    can terminate this process cleanly when shutting down."""
+    try:
+        with open(PID_FILE + ".tmp", 'w') as f:
+            f.write(str(os.getpid()) + "\n")
+        _atomic_replace(PID_FILE + ".tmp", PID_FILE)
+    except Exception:
+        pass
 
 
 def _write_status(phase, message=""):
@@ -178,17 +208,22 @@ def main():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     os.environ['GLOG_minloglevel'] = '2'
 
-    print(f"starting gesture_detector (python {sys.version.split()[0]})", flush=True)
+    _write_pid()
+    _write_diag("=== gesture_detector start ===")
+    _write_diag(f"starting gesture_detector (python {sys.version.split()[0]})")
     _write_status("init", "starting")
 
     cap = _open_camera()
     if cap is None:
         write_result(False, "none", 0.0, None)
         _write_status("error", "no camera available")
-        print("no camera available (tried DSHOW/MSMF/DEFAULT on indexes 0-2)",
-              file=sys.stderr, flush=True)
+        if sys.platform.startswith("win"):
+            _write_diag("no camera available (tried DSHOW/MSMF/DEFAULT on indexes 0-2)")
+        else:
+            _write_diag("no camera available (check /dev/video0)")
         sys.exit(1)
 
+    _write_diag("camera ok")
     _write_status("camera_ok", "camera opened")
 
     try:
@@ -202,12 +237,13 @@ def main():
     recognizer, mp_ok, mp_msg = _try_create_recognizer()
     if mp_ok:
         _write_status("mediapipe_ok", "gesture model loaded")
+        _write_diag("mediapipe gesture recognizer loaded")
     else:
         _write_status("camera_only", mp_msg)
-        print(f"[warn] gesture recognition disabled: {mp_msg}", flush=True)
+        _write_diag("gesture recognition disabled:", mp_msg)
 
     write_result(False, "none", 0.0, None)
-    print("ok", flush=True)
+    _write_diag("init complete — entering main loop")
 
     prev_gray = None
     frame_count = 0
@@ -215,9 +251,7 @@ def main():
     cached_fist = False
     cached_landmarks = None
 
-    # Initialization done.  Now suppress the noisy C-level stderr chatter
-    # from mediapipe / tensorflow lite so Lua's pipe reader only sees our
-    # own stdout messages.  Camera/gesture errors go to STATUS_FILE instead.
+    # Suppress noisy C-level stderr chatter from mediapipe / tensorflow lite.
     try:
         _stderr_fd = sys.stderr.fileno()
         _null = open(os.devnull, 'w')
@@ -305,12 +339,12 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"FATAL: unhandled exception: {e}", flush=True)
-        print("--- traceback ---", flush=True)
+        _write_diag("FATAL: unhandled exception:", str(e))
+        _write_diag("--- traceback ---")
         tb = traceback.format_exc()
-        # Sanitize: replace any non-ASCII with '?' for safety
         tb_clean = ''.join(c if ord(c) < 128 else '?' for c in tb)
-        print(tb_clean, flush=True)
+        for ln in tb_clean.split("\n"):
+            _write_diag(ln)
         try:
             _write_status("error", f"crash: {e}")
         except Exception:
