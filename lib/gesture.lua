@@ -2,9 +2,14 @@
 local ffi = require("ffi")
 local M = {}
 
+local IS_WINDOWS = package.config:sub(1, 1) == "\\"
 local TMP_DIR = os.getenv("TMPDIR") or os.getenv("TEMP") or os.getenv("TMP") or "/tmp"
-local SHARED_FILE = TMP_DIR .. "/blue_hours_hand.txt"
-local FRAME_FILE = TMP_DIR .. "/blue_hours_frame.bin"
+local SEP = IS_WINDOWS and "\\" or "/"
+local SHARED_FILE = TMP_DIR .. SEP .. "blue_hours_hand.txt"
+local FRAME_FILE = TMP_DIR .. SEP .. "blue_hours_frame.bin"
+local STATUS_FILE = TMP_DIR .. SEP .. "blue_hours_status.txt"
+local DIAG_FILE = TMP_DIR .. SEP .. "blue_hours_diag.txt"
+
 local thread = nil
 local lastFist = false
 local fistEdge = false
@@ -17,6 +22,12 @@ local cameraImage = nil
 local cameraImageData = nil
 local frameW, frameH = 0, 0
 
+-- Python process status tracking (from blue_hours_status.txt)
+local pyPhase = "unknown"   -- init | camera_ok | mediapipe_ok | running | camera_only | error
+local pyMessage = ""        -- human-readable status / error detail
+local pyLastTime = 0        -- the "time" field from the latest status file (unix seconds)
+local pyLastSeen = 0        -- love.timer.getTime() at which we last saw a fresh status
+
 ffi.cdef[[
 typedef struct { unsigned int w, h, stride; } FrameHeader;
 ]]
@@ -27,9 +38,8 @@ function M.start()
 end
 
 function M.stop()
-    local isWindows = package.config:sub(1, 1) == "\\"
-    if isWindows then
-        os.execute('taskkill /F /FI "IMAGENAME eq python*" /T >nul 2>&1')
+    if IS_WINDOWS then
+        os.execute('taskkill /F /FI "WINDOWTITLE eq *gesture_detector*" /T >nul 2>&1')
         os.execute('del /Q "' .. SHARED_FILE .. '" "' .. FRAME_FILE .. '" >nul 2>&1')
     else
         os.execute("pkill -f gesture_detector.py 2>/dev/null")
@@ -37,8 +47,39 @@ function M.stop()
     end
 end
 
+-- Strip non-ASCII bytes from strings read from external files. Python
+-- subprocess output on Windows may use a system code page (e.g. GBK/CP936)
+-- which is not valid UTF-8, and passing those to love.graphics.print /
+-- love.timer / etc would trigger a decode error.
+local function clean(s)
+    if not s then return s end
+    return (tostring(s):gsub("[\128-\255]", "?"))
+end
+
 function M.update()
-    -- Read gesture data
+    -- --- 1) Read Python STATUS file (heartbeat) ---
+    local sf = io.open(STATUS_FILE, "r")
+    if sf then
+        local gotPhase, gotTime, gotMsg
+        for line in sf:lines() do
+            local k, v = line:match("^([%w_]+):%s*(.*)$")
+            if k == "phase" then gotPhase = clean(v)
+            elseif k == "time" then gotTime = tonumber(v)
+            elseif k == "msg" then gotMsg = clean(v)
+            end
+        end
+        sf:close()
+        if gotPhase and gotTime and gotTime > pyLastTime then
+            pyPhase = gotPhase
+            pyLastTime = gotTime
+            pyLastSeen = love.timer and love.timer.getTime() or 0
+            if gotMsg and gotMsg ~= "" then pyMessage = gotMsg end
+        elseif gotPhase then
+            pyPhase = gotPhase
+        end
+    end
+
+    -- --- 2) Read gesture data ---
     local f = io.open(SHARED_FILE, "r")
     if f then
         local line1 = f:read("*l")
@@ -48,7 +89,7 @@ function M.update()
             lastFist = newFist
 
             local line2 = f:read("*l")
-            gestureName = line2 or "none"
+            gestureName = clean(line2) or "none"
 
             local newThumbUp = (gestureName == "Thumb_Up")
             thumbUpEdge = (newThumbUp and not lastThumbUp)
@@ -71,7 +112,7 @@ function M.update()
         f:close()
     end
 
-    -- Read camera frame
+    -- --- 3) Read camera frame ---
     local ff = io.open(FRAME_FILE, "rb")
     if ff then
         local header = ff:read(12)
@@ -107,5 +148,35 @@ function M.getImage() return cameraImage end
 function M.getImageData() return cameraImageData end
 function M.getDimensions() return frameW, frameH end
 function M.isThreadAlive() return thread ~= nil and thread:isRunning() end
+
+-- Python process / frame freshness helpers
+function M.getPhase() return pyPhase end
+function M.getPhaseMessage() return pyMessage end
+function M.getFrameAge()
+    if love.timer and pyLastSeen > 0 then
+        return love.timer.getTime() - pyLastSeen
+    end
+    return -1  -- never seen any status update
+end
+function M.isPythonAlive()
+    local age = M.getFrameAge()
+    return age >= 0 and age < 3.0
+end
+function M.hasFreshFrame()
+    local age = M.getFrameAge()
+    return age >= 0 and age < 1.5
+end
+
+-- Diagnostic file from gesture_thread.lua (shows python path probing, etc.)
+function M.getDiagLines()
+    local f = io.open(DIAG_FILE, "r")
+    if not f then return nil end
+    local lines = {}
+    for ln in f:lines() do
+        table.insert(lines, clean(ln))
+    end
+    f:close()
+    return lines
+end
 
 return M

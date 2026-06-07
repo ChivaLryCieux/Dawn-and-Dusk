@@ -10,6 +10,16 @@ native/models/*.task
 python/
 !python/setup.bat
 
+# Debug / test output from gesture_detector.py runs
+py_out.txt
+py_err.txt
+py_stdout.txt
+py_stderr.txt
+py_test2.txt
+py_test2_err.txt
+blue_hours_*.txt
+blue_hours_*.bin
+
 # Native build artifacts
 *.so
 *.dll
