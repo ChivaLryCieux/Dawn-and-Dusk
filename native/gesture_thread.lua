@@ -4,11 +4,29 @@
 -- with CREATE_NO_WINDOW to avoid spawning a visible cmd.exe / console window.
 -- On Linux io.popen is fine because it doesn't create visible windows.
 
-local src = ...  -- passed as argument from main thread
+local rawSrc = ...  -- passed as argument from main thread (love.filesystem.getSource())
 
 -- Detect OS
 local isWindows = package.config:sub(1, 1) == "\\"
 local sep = isWindows and "\\" or "/"
+
+-- love.filesystem.getSource() can return either a directory path (love .)
+-- or the .exe file path (fused build).  We always want the directory.
+local function toDir(p)
+    if not p then return "." end
+    p = tostring(p)
+    -- If it points to an existing file (not a directory), strip the filename
+    local asDir = p:gsub("[/\\]+$", "")
+    local f = io.open(p, "rb")
+    if f then
+        -- It's a file path, not a directory — strip the last component
+        f.close(f)
+        asDir = p:match("^(.*)[/\\][^/\\]*$") or "."
+    end
+    return asDir
+end
+
+local src = toDir(rawSrc)
 
 -- Cross-platform temp dir
 local tmpDir = os.getenv("TMPDIR") or os.getenv("TEMP") or os.getenv("TMP") or (isWindows and "C:\\Windows\\Temp" or "/tmp")
@@ -40,7 +58,8 @@ end
 
 d("=== gesture_thread start ===")
 d("os:", isWindows and "windows" or "unix")
-d("src:", tostring(src))
+d("raw_src:", tostring(rawSrc))
+d("resolved_src:", tostring(src))
 flushDiag()
 
 -- Build script path
