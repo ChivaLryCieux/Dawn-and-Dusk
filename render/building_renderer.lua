@@ -1,10 +1,17 @@
 local util = require("lib.util")
 local palette = require("models.palette")
 
+local math_sin, math_cos, math_floor, math_min, math_max = math.sin, math.cos, math.floor, math.min, math.max
+local math_abs = math.abs
+
 local M = {}
 
 local ISO_YAW = -math.atan(0.5)
 local drawList = {}
+
+local function drawListCmp(a, b)
+  return a.x + a.y + a.z * 0.08 + a.cube.coreSortBias < b.x + b.y + b.z * 0.08 + b.cube.coreSortBias
+end
 local paletteScratch = {
   dark = {0, 0, 0, 1},
   mid = {0, 0, 0, 1},
@@ -47,13 +54,13 @@ end
 function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount, textAmount, spinPhase, textYaw, textPitch, asciiFn, blend)
   local cubeW = baseSize
   local cubeH = baseSize * 0.5
-  local pulse = 0.5 + math.sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
+  local pulse = 0.5 + math_sin(elapsed * (3.5 + sensors.sound * 8)) * 0.5
   local useTransformSort = flowAmount > 0.002 or textAmount > 0.002
   local renderCount = #tower
   local yaw = ISO_YAW * util.smoothstep(textAmount)
   local pitch = 0
-  local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
-  local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)
+  local cosYaw, sinYaw = math_cos(yaw), math_sin(yaw)
+  local cosPitch, sinPitch = math_cos(pitch), math_sin(pitch)
   local textCenterZ = 15.0
 
   if useTransformSort then
@@ -62,16 +69,16 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
       local pull = util.smoothstep((flowAmount - cube.delay) / 0.58)
       local textPull = util.smoothstep((textAmount - cube.textDelay) / 0.5)
       local orbit = -spinPhase * 1.1 + cube.orbitPhase
-      local targetX = math.cos(orbit) * cube.orbitRadius
-      local targetY = math.sin(orbit) * cube.orbitRadius + cube.ringBias
-      local targetZ = cube.z + math.sin(orbit * 1.4 + cube.seed) * 1.1
+      local targetX = math_cos(orbit) * cube.orbitRadius
+      local targetY = math_sin(orbit) * cube.orbitRadius + cube.ringBias
+      local targetZ = cube.z + math_sin(orbit * 1.4 + cube.seed) * 1.1
       local flowX = util.lerp(cube.x, targetX, pull)
       local flowY = util.lerp(cube.y, targetY, pull)
       local flowZ = util.lerp(cube.z, targetZ, pull)
       -- Breathing: cubes pulse in X and Z (perpendicular to text plane normal Y)
       local breathPhase = elapsed * 3.14 + cube.seed * 6.28
-      local breathDX = (math.sin(breathPhase * 0.8 + 2.1) * 0.05 + math.sin(breathPhase * 0.5 + 0.7) * 0.03) * textPull
-      local breathDZ = (math.sin(breathPhase) * 0.06 + math.sin(breathPhase * 0.6 + 1.3) * 0.04) * textPull
+      local breathDX = (math_sin(breathPhase * 0.8 + 2.1) * 0.05 + math_sin(breathPhase * 0.5 + 0.7) * 0.03) * textPull
+      local breathDZ = (math_sin(breathPhase) * 0.06 + math_sin(breathPhase * 0.6 + 1.3) * 0.04) * textPull
       local textX = (cube.textX + breathDX) * cosYaw - cube.textY * sinYaw
       local textY = (cube.textX + breathDX) * sinYaw + cube.textY * cosYaw
       local textZ = (cube.textZ - textCenterZ) + breathDZ
@@ -90,21 +97,20 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
     for i = renderCount + 1, #drawList do
       drawList[i] = nil
     end
-    table.sort(drawList, function(a, b)
-      return a.x + a.y + a.z * 0.08 + a.cube.coreSortBias < b.x + b.y + b.z * 0.08 + b.cube.coreSortBias
-    end)
+    table.sort(drawList, drawListCmp)
   end
 
+  palette.prepareCycle(elapsed)
   for i = 1, renderCount do
     local item = useTransformSort and drawList[i] or tower[i]
     local cube = item.cube or item
     local drawX = useTransformSort and item.x or cube.x
     local drawY = useTransformSort and item.y or cube.y
     local drawZ = useTransformSort and item.z or cube.z
-    local tremor = math.sin(elapsed * 0.8 + cube.seed) * sensors.sound * baseSize * 0.025
+    local tremor = math_sin(elapsed * 0.8 + cube.seed) * sensors.sound * baseSize * 0.025
     local grow = sensors.temperature * 0.08 + pulse * sensors.sound * 0.05
     local kindBoost = cube.kind == "spire" and 1.16 or cube.kind == "crown" and 1.07 or 1
-    local flow = math.sin(elapsed * 0.48 + drawZ * 0.16 + (drawX - drawY) * 0.08) * 0.5 + 0.5
+    local flow = math_sin(elapsed * 0.48 + drawZ * 0.16 + (drawX - drawY) * 0.08) * 0.5 + 0.5
     local colors = palette.get(elapsed, drawX, drawY, drawZ, paletteScratch)
     local textBoost = textAmount * 0.18
     local brightness = kindBoost * colors.brightness * (0.9 + cube.z * 0.006 + sensors.temperature * 0.02 + textBoost + flow * (0.012 + flowAmount * 0.012))
@@ -112,7 +118,7 @@ function M.draw(tower, elapsed, baseSize, originX, originY, sensors, flowAmount,
 
     if cube.parentZ % 12 == 0 and cube.kind ~= "base" and cube.subIndex % 5 == 0 then
       accent = {0.92, 0.08, 0.18, 0.07 + sensors.temperature * 0.03}
-    elseif math.floor((cube.x + cube.y + cube.z) * 3) % 17 == 0 then
+    elseif math_floor((cube.x + cube.y + cube.z) * 3) % 17 == 0 then
       accent = {0.0, 0.72, 0.78, 0.05 + sensors.humidity * 0.025}
     end
 

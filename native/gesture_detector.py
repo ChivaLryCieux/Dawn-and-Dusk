@@ -308,12 +308,13 @@ def main():
 
             write_result(cached_fist, cached_gesture, motion_val, cached_landmarks)
 
-            # Write camera frame: every frame
-            try:
-                rgba = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-                write_frame(rgba)
-            except Exception:
-                pass
+            # Write camera frame: every 2nd frame (halves disk I/O)
+            if frame_count % 2 == 0:
+                try:
+                    rgba = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+                    write_frame(rgba)
+                except Exception:
+                    pass
 
             # Heartbeat every 30 frames so Lua can verify we're alive
             if frame_count % 15 == 0:

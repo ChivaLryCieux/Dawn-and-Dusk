@@ -1,4 +1,6 @@
 local ffi = require("ffi")
+local math_ceil, math_floor, math_min, math_max = math.ceil, math.floor, math.min, math.max
+local math_abs, math_exp, math_sin = math.abs, math.exp, math.sin
 local sensors = require("lib.sensor_sim")
 local motion = require("render.motion")
 local towerModel = require("models.tower_model")
@@ -22,6 +24,7 @@ local ASCII_CELL = 20
 local asciiGridW, asciiGridH = 0, 0
 local asciiChars = {}
 local asciiR, asciiG, asciiB = {}, {}, {}
+local asciiSampleMap = nil
 
 local function ensureCanvas(w, h)
   if not canvas or canvas:getWidth() ~= w or canvas:getHeight() ~= h then
@@ -36,15 +39,25 @@ local function buildAsciiGrid(w, h)
   local cw, ch = gesture.getDimensions()
   if cw == 0 or ch == 0 then return end
 
-  local gw = math.ceil(w / ASCII_CELL)
-  local gh = math.ceil(h / ASCII_CELL)
+  local gw = math_ceil(w / ASCII_CELL)
+  local gh = math_ceil(h / ASCII_CELL)
 
+  -- Rebuild sample coordinate map only when grid dimensions change
   if gw ~= asciiGridW or gh ~= asciiGridH then
     asciiGridW, asciiGridH = gw, gh
+    asciiSampleMap = {}
+    for gy = 0, gh - 1 do
+      for gx = 0, gw - 1 do
+        local sx = math_floor((gx * ASCII_CELL + ASCII_CELL * 0.5) / w * cw)
+        local sy = math_floor((gy * ASCII_CELL + ASCII_CELL * 0.5) / h * ch)
+        sx = math_min(math_max(sx, 0), cw - 1)
+        sy = math_min(math_max(sy, 0), ch - 1)
+        asciiSampleMap[gy * gw + gx] = sy * cw * 4 + sx * 4
+      end
+    end
   end
 
   local ptr = ffi.cast("uint8_t*", imgData:getPointer())
-  local stride = cw * 4
   local densityLen = #ASCII_DENSITY
 
   for gy = 0, gh - 1 do
@@ -56,34 +69,30 @@ local function buildAsciiGrid(w, h)
 
     for gx = 0, gw - 1 do
       local col = gx + 1
-      local sx = math.floor((gx * ASCII_CELL + ASCII_CELL * 0.5) / w * cw)
-      local sy = math.floor((gy * ASCII_CELL + ASCII_CELL * 0.5) / h * ch)
-      sx = math.min(math.max(sx, 0), cw - 1)
-      sy = math.min(math.max(sy, 0), ch - 1)
+      local offset = asciiSampleMap[gy * gw + gx]
 
-      local offset = sy * stride + sx * 4
       local r = ptr[offset] / 255
       local g = ptr[offset + 1] / 255
       local b = ptr[offset + 2] / 255
 
       local gray = r * 0.299 + g * 0.587 + b * 0.114
-      local idx = math.floor(gray * (densityLen - 1)) + 1
-      idx = math.min(math.max(idx, 1), densityLen)
+      local idx = math_floor(gray * (densityLen - 1)) + 1
+      idx = math_min(math_max(idx, 1), densityLen)
 
       asciiChars[row][col] = ASCII_DENSITY:sub(idx, idx)
       -- Brightness floor: avoid invisible dark characters
       local minB = 0.18
-      asciiR[row][col] = math.max(r, minB)
-      asciiG[row][col] = math.max(g, minB)
-      asciiB[row][col] = math.max(b, minB)
+      asciiR[row][col] = math_max(r, minB)
+      asciiG[row][col] = math_max(g, minB)
+      asciiB[row][col] = math_max(b, minB)
     end
   end
 end
 
 -- Get ASCII char + color at screen position
 local function getAsciiAt(sx, sy)
-  local gx = math.floor(sx / ASCII_CELL) + 1
-  local gy = math.floor(sy / ASCII_CELL) + 1
+  local gx = math_floor(sx / ASCII_CELL) + 1
+  local gy = math_floor(sy / ASCII_CELL) + 1
   if gx < 1 or gx > asciiGridW or gy < 1 or gy > asciiGridH then
     return nil
   end
@@ -91,13 +100,13 @@ local function getAsciiAt(sx, sy)
 end
 
 local function drawScene(w, h)
-  local baseSize = math.min(w, h) * 0.033
+  local baseSize = math_min(w, h) * 0.033
   local originX = w * 0.5
   local originY = h * 0.8
   local sensorValues = sensors.get()
   local flowAmount = motion.flowAmount()
   local textAmount = motion.textAmount()
-  local ringAmount = math.max(flowAmount, 0.55)
+  local ringAmount = math_max(flowAmount, 0.55)
   local spinPhase = motion.spinPhase()
   local textYaw, textPitch = motion.textLook()
 
@@ -132,7 +141,7 @@ function love.load()
 end
 
 function love.update(dt)
-  dt = math.min(dt, 1 / 30)
+  dt = math_min(dt, 1 / 30)
   elapsed = elapsed + dt
   motion.update(dt)
   sensors.update(dt, elapsed)
@@ -166,8 +175,8 @@ function love.update(dt)
 
   -- Smooth lerp: blend toward target
   local target = asciiMode and 1 or 0
-  asciiBlend = asciiBlend + (target - asciiBlend) * (1 - math.exp(-dt * 4))
-  if math.abs(asciiBlend - target) < 0.002 then
+  asciiBlend = asciiBlend + (target - asciiBlend) * (1 - math_exp(-dt * 4))
+  if math_abs(asciiBlend - target) < 0.002 then
     asciiBlend = target
   end
 end
@@ -196,7 +205,7 @@ function love.draw()
   if camImg then
     local cw, ch = gesture.getDimensions()
     if cw > 0 and ch > 0 then
-      local scale = math.min(w * 0.25 / cw, h * 0.25 / ch)
+      local scale = math_min(w * 0.25 / cw, h * 0.25 / ch)
       local ox = w - cw * scale - 10
       local oy = h - ch * scale - 10
       love.graphics.setColor(1, 1, 1, 1)
@@ -353,4 +362,5 @@ function love.resize(w, h)
   -- the next draw(). Also clear ASCII state so the grid rebuilds.
   canvas = nil
   asciiGridW, asciiGridH = 0, 0
+  asciiSampleMap = nil
 end

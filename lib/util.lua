@@ -1,7 +1,8 @@
 local M = {}
+local math_max, math_min = math.max, math.min
 
 function M.clamp(value, low, high)
-  return math.max(low, math.min(high, value))
+  return math_max(low, math_min(high, value))
 end
 
 function M.lerp(a, b, t)

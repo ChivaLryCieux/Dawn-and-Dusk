@@ -1,15 +1,22 @@
 local util = require("lib.util")
 
 local M = {}
+local math_sin, math_floor, math_min = math.sin, math.floor, math.min
+local cachedSegment, cachedLocalT = 0, 0
 
-function M.get(elapsed, x, y, z, out)
+function M.prepareCycle(elapsed)
   local segmentDuration = 10
   local cycle = (elapsed % (segmentDuration * 4)) / segmentDuration
-  local segment = math.floor(cycle)
-  local localT = util.smoothstep(cycle - segment)
+  cachedSegment = math_floor(cycle)
+  cachedLocalT = util.smoothstep(cycle - cachedSegment)
+end
+
+function M.get(elapsed, x, y, z, out)
+  local segment = cachedSegment
+  local localT = cachedLocalT
   local tiltedAxis = x * 0.062 - y * 0.034 + z * 0.021
   local crossFlow = x * 0.018 + y * 0.026 - z * 0.006
-  local sweep = util.clamp(0.48 + tiltedAxis + math.sin(elapsed * 0.12 + crossFlow) * 0.16, 0, 1)
+  local sweep = util.clamp(0.48 + tiltedAxis + math_sin(elapsed * 0.12 + crossFlow) * 0.16, 0, 1)
   local band = util.smoothstep(sweep)
   local rybR, rybG, rybB, rybA
 
@@ -37,7 +44,7 @@ function M.get(elapsed, x, y, z, out)
 
   out.dark[1], out.dark[2], out.dark[3], out.dark[4] = r * 0.7, g * 0.76, b * 0.82, a
   out.mid[1], out.mid[2], out.mid[3], out.mid[4] = r * 0.88, g * 0.94, b, a
-  out.top[1], out.top[2], out.top[3], out.top[4] = math.min(r * 1.16, 1), math.min(g * 1.16, 1), math.min(b * 1.18, 1), a
+  out.top[1], out.top[2], out.top[3], out.top[4] = math_min(r * 1.16, 1), math_min(g * 1.16, 1), math_min(b * 1.18, 1), a
   out.brightness = 0.9 + band * 0.1
   return out
 end

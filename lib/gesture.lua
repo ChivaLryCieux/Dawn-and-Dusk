@@ -21,6 +21,9 @@ local motionValue = 0
 local cameraImage = nil
 local cameraImageData = nil
 local frameW, frameH = 0, 0
+local updateCounter = 0
+local landmarkPool = {}
+for i = 1, 21 do landmarkPool[i] = {x = 0, y = 0, z = 0} end
 
 -- Python process status tracking (from blue_hours_status.txt)
 local pyPhase = "unknown"   -- init | camera_ok | mediapipe_ok | running | camera_only | error
@@ -81,7 +84,9 @@ local function clean(s)
 end
 
 function M.update()
+    updateCounter = updateCounter + 1
     -- --- 1) Read Python STATUS file (heartbeat) ---
+    if updateCounter % 60 == 0 then
     local sf = io.open(STATUS_FILE, "r")
     if sf then
         local gotPhase, gotTime, gotMsg
@@ -102,8 +107,10 @@ function M.update()
             pyPhase = gotPhase
         end
     end
+    end
 
     -- --- 2) Read gesture data ---
+    if updateCounter % 2 == 0 then
     local f = io.open(SHARED_FILE, "r")
     if f then
         local line1 = f:read("*l")
@@ -128,15 +135,24 @@ function M.update()
                 if not line then break end
                 local idx, x, y, z = line:match("^(%d+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$")
                 if idx then
-                    lm[tonumber(idx) + 1] = {x = tonumber(x), y = tonumber(y), z = tonumber(z)}
+                    local li = tonumber(idx) + 1
+                    local pt = landmarkPool[li]
+                    if pt then
+                        pt.x = tonumber(x)
+                        pt.y = tonumber(y)
+                        pt.z = tonumber(z)
+                        lm[li] = pt
+                    end
                 end
             end
             landmarks = #lm > 0 and lm or nil
         end
         f:close()
     end
+    end
 
     -- --- 3) Read camera frame ---
+    if updateCounter % 2 == 1 then
     local ff = io.open(FRAME_FILE, "rb")
     if ff then
         local header = ff:read(12)
@@ -158,6 +174,7 @@ function M.update()
         else
             ff:close()
         end
+    end
     end
 end
 

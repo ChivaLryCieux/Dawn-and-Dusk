@@ -1,6 +1,6 @@
-# Guiyang Bamboo Tower Visualizer
+# Lincheng: Renewing Dawn & Dusk
 
-LOVE2D realtime projection sketch for a Guiyang bamboo-fungus-inspired tower made from cube modules.
+LOVE2D realtime projection sketch  made from cube modules.
 
 The visual system is built from two basic geometric elements:
 
@@ -72,11 +72,11 @@ Python writes both files atomically via `os.replace(tmp, final)` — Lua never r
 
 ### Supported Gestures
 
-| Gesture | Action |
-|---------|--------|
+| Gesture       | Action                               |
+| ------------- | ------------------------------------ |
 | ✊ Closed Fist | Cycle states (spiral → text → tower) |
-| 👍 Thumbs Up | Jump to Guiyang text state |
-| ✌️ Victory | Activate ASCII mode for 5 seconds |
+| 👍 Thumbs Up  | Jump to Guiyang text state           |
+| ✌️ Victory    | Activate ASCII mode for 5 seconds    |
 
 In ASCII mode, the scene transitions to black background with colored ASCII characters. Ring panels use camera feed colors; tower cubes use inverted camera colors.
 
@@ -122,3 +122,4 @@ dist/
     └── models/
         └── gesture_recognizer.task  ← downloaded by setup.bat
 ```
+

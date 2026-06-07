@@ -1,7 +1,9 @@
+local math_sin, math_cos, math_sqrt, math_floor, math_abs = math.sin, math.cos, math.sqrt, math.floor, math.abs
+local math_pi = math.pi
 local util = require("lib.util")
 
 local M = {}
-local TAU = math.pi * 2
+local TAU = math_pi * 2
 
 local palette = {
   blue = {0.0, 0.04, 0.95, 1},
@@ -61,7 +63,7 @@ local blockColors = {
 
 local function isFrontAngle(angle)
   local t = angle % TAU
-  return t >= 0 and t <= math.pi
+  return t >= 0 and t <= math_pi
 end
 
 local function setColor(color, shade)
@@ -74,18 +76,18 @@ local function setColor(color, shade)
 end
 
 local function helixPoint(cx, originY, baseSize, stream, phase, u, radiusOffset, textAmount)
-  local sway = math.sin(u * math.pi * 3.0 + stream.phase) * 0.46
+  local sway = math_sin(u * math_pi * 3.0 + stream.phase) * 0.46
   local textClearance = util.smoothstep(textAmount or 0) * 5.4
   local radius = baseSize * (stream.radius + textClearance + radiusOffset + sway * 0.14)
   local angle = phase + stream.direction * (u * stream.turns * TAU)
   local z = stream.z0 + (stream.z1 - stream.z0) * u
-  local x = cx + math.cos(angle) * radius
-  local y = originY - baseSize * z + math.sin(angle) * radius * stream.flatness
+  local x = cx + math_cos(angle) * radius
+  local y = originY - baseSize * z + math_sin(angle) * radius * stream.flatness
   return x, y, angle
 end
 
 local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, flowAmount, front, textAmount, asciiFn, blend)
-  local group = math.floor(index / 3)
+  local group = math_floor(index / 3)
   local u = ((index * 0.137 + stream.phase * 0.07 + flowAmount * 0.08) % 1)
   local span = 0.018 + (index % 5) * 0.006 + sensors.sound * 0.012
   local u0 = util.clamp(u - span * 0.5, 0, 1)
@@ -100,16 +102,16 @@ local function drawPanel(cx, originY, baseSize, stream, phase, index, sensors, f
   end
 
   local dx, dy = x1 - x0, y1 - y0
-  local length = math.sqrt(dx * dx + dy * dy)
+  local length = math_sqrt(dx * dx + dy * dy)
   if length < 0.001 then
     return
   end
 
   local nx, ny = -dy / length, dx / length
   local panelWidth = baseSize * (0.5 + (index % 4) * 0.2 + sensors.temperature * 0.24)
-  local jitter = math.sin(index * 7.13 + phase * 1.7) * sensors.sound * baseSize * 0.42
+  local jitter = math_sin(index * 7.13 + phase * 1.7) * sensors.sound * baseSize * 0.42
   local color = blockColors[(group % #blockColors) + 1]
-  local shade = 0.84 + math.sin(midAngle) * 0.12
+  local shade = 0.84 + math_sin(midAngle) * 0.12
 
   if asciiFn and blend > ((index * 137 % 1000) / 1000) then
     local midX = (x0 + x1) * 0.5 + jitter
@@ -135,7 +137,7 @@ end
 local function drawStream(cx, originY, baseSize, stream, sensors, spinPhase, flowAmount, front, textAmount, asciiFn, blend)
   local phase = stream.phase - spinPhase * stream.speed
 
-  local panelCount = 42 + math.floor(flowAmount * 22)
+  local panelCount = 42 + math_floor(flowAmount * 22)
   for i = 1, panelCount do
     drawPanel(cx, originY, baseSize, stream, phase, i, sensors, flowAmount, front, textAmount, asciiFn, blend)
   end
