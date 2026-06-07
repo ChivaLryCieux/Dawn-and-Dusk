@@ -75,16 +75,17 @@ Hand movement speed is computed via frame differencing (grayscale, downsampled t
 
 ### Setup
 
-```bash
-# Create Python venv and install MediaPipe + OpenCV
-cd native && python3.12 -m venv mpenv && mpenv/bin/pip install mediapipe
+Run the setup script to create a Python venv with MediaPipe + OpenCV and download the gesture model:
 
-# Download gesture recognition model
-wget -O native/models/gesture_recognizer.task \
-  https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task
+```bash
+# Linux / macOS
+cd native && bash setup.sh
+
+# Windows
+cd native && setup.bat
 ```
 
-Run:
+This installs everything into `native/mpenv/` (git-ignored). Then run:
 
 ```bash
 love .
@@ -99,7 +100,8 @@ The `LOVE/` folder contains the LÖVE 11.5 Windows runtime. To build a standalon
 ```bash
 # Create .love archive
 zip -r blue-hours.love main.lua conf.lua lib/ models/ render/ shaders/ \
-  native/gesture_detector.py native/gesture_thread.lua native/models/
+  native/gesture_detector.py native/gesture_thread.lua native/models/ \
+  native/setup.bat native/setup.sh
 
 # Concatenate with LÖVE runtime → standalone .exe
 cat LOVE/love.exe blue-hours.love > blue-hours.exe
@@ -109,14 +111,16 @@ Copy `blue-hours.exe` and all DLLs from `LOVE/` into a `dist/` folder.
 
 ### Gesture Recognition on Windows
 
-The gesture system requires Python + MediaPipe. Users must run `python/setup.bat` once to install a portable Python environment into `python/3.12/`. The game auto-detects this bundled Python at runtime.
+The gesture system requires Python + MediaPipe. Users must run `native/setup.bat` once to create a venv and download the model. The game auto-detects `native/mpenv/` at runtime.
 
 ```
 dist/
 ├── blue-hours.exe
 ├── *.dll
-└── python/
-    └── setup.bat          ← run once to install
+└── native/
+    ├── setup.bat          ← run once to install
+    ├── gesture_detector.py
+    ├── gesture_thread.lua
+    └── models/
+        └── gesture_recognizer.task  ← downloaded by setup.bat
 ```
-
-The bundled Python approach adds ~200MB but requires no system-level installation.
