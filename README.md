@@ -13,15 +13,24 @@ Current input mode uses `love.math.noise` to simulate three sensor channels:
 - Humidity: cyan translucency, glass-like face tint, lower ring scale
 - Sound: structural tremor, broken-ring motion, functional band drift
 
-Run:
+## Quick Start
 
 ```bash
+# 1. Clone the repo
+git clone https://github.com/ChivaLryCieux/Dawn-and-Dusk.git
+cd Dawn-and-Dusk
+
+# 2. Install gesture recognition dependencies (optional, needs webcam)
+cd native && bash setup.sh   # Linux/macOS
+cd native && setup.bat        # Windows
+
+# 3. Run
 love .
 ```
 
-Controls:
+## Controls
 
-- mouse click: cycle building -> cube flow -> Guiyang text -> cube flow -> building
+- mouse click: cycle building → cube flow → Guiyang text → cube flow → building
 - `space`: pause or resume simulated sensor input
 - `r`: reseed the simulated input
 - `f`: toggle fullscreen
@@ -36,13 +45,15 @@ The system uses MediaPipe GestureRecognizer via a Python subprocess to perform r
 ```
 LÖVE main thread
   └─ love.thread → gesture_thread.lua
-       └─ io.popen("python3 gesture_detector.py")
+       └─ io.popen("python gesture_detector.py")
             └─ Python process (long-running)
-                 ├── /tmp/blue_hours_hand.txt   gesture + motion + landmarks
-                 └── /tmp/blue_hours_frame.bin  raw RGBA camera frame
+                 ├── <tmpdir>/blue_hours_hand.txt   gesture + motion + landmarks
+                 └── <tmpdir>/blue_hours_frame.bin  raw RGBA camera frame
                         ↓
                  LÖVE reads each frame via io.open + FFI
 ```
+
+`<tmpdir>` is the system temp directory (`/tmp` on Linux, `%TEMP%` on Windows).
 
 ### Lua-Python Communication
 
@@ -52,8 +63,8 @@ Lua and Python communicate through **file IPC** — no sockets, no pipes, no sha
 
 **Protocol:**
 
-- `hand.txt` — plain text, 3+ lines: fist flag (`0`/`1`), gesture name, motion value, then one line per hand landmark (`index x y z`)
-- `frame.bin` — binary: 12-byte header (`w:u32 h:u32 stride:u32`) followed by raw RGBA pixels
+- `blue_hours_hand.txt` — plain text, 3+ lines: fist flag (`0`/`1`), gesture name, motion value, then one line per hand landmark (`index x y z`)
+- `blue_hours_frame.bin` — binary: 12-byte header (`w:u32 h:u32 stride:u32`) followed by raw RGBA pixels
 
 Python writes both files atomically via `os.replace(tmp, final)` — Lua never reads a half-written file.
 
@@ -73,23 +84,7 @@ In ASCII mode, the scene transitions to black background with colored ASCII char
 
 Hand movement speed is computed via frame differencing (grayscale, downsampled to 160×120). Motion magnitude drives the rotation speed of the surrounding spiral bands — move your hand faster to spin the rings faster.
 
-### Setup
-
-Run the setup script to create a Python venv with MediaPipe + OpenCV and download the gesture model:
-
-```bash
-# Linux / macOS
-cd native && bash setup.sh
-
-# Windows
-cd native && setup.bat
-```
-
-This installs everything into `native/mpenv/` (git-ignored). Then run:
-
-```bash
-love .
-```
+Dependencies are installed via the setup script shown in [Quick Start](#quick-start). Everything goes into `native/mpenv/` (git-ignored).
 
 When real sensor data is available, replace `updateSensors(dt)` in `main.lua` with serial, socket, or OSC input and keep the `sensors.temperature`, `sensors.humidity`, and `sensors.sound` fields normalized through `normalizeSensor`.
 
@@ -98,6 +93,9 @@ When real sensor data is available, replace `updateSensors(dt)` in `main.lua` wi
 The `LOVE/` folder contains the LÖVE 11.5 Windows runtime. To build a standalone .exe:
 
 ```bash
+# Run setup first so the model file exists
+cd native && bash setup.sh && cd ..
+
 # Create .love archive
 zip -r blue-hours.love main.lua conf.lua lib/ models/ render/ shaders/ \
   native/gesture_detector.py native/gesture_thread.lua native/models/ \
